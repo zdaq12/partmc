@@ -319,6 +319,17 @@ add_executable(urban_plume_process
   scenarios/1_urban_plume/urban_plume_process.F90)
 target_link_libraries(urban_plume_process partmclib)
 
+<<<<<<< Updated upstream
+=======
+add_executable(urban_plume_sect_process
+  scenarios/1_urban_plume/urban_plume_sect_process.F90)
+target_link_libraries(urban_plume_sect_process partmclib)
+
+add_executable(urban_plume_modal_process
+  scenarios/1_urban_plume/urban_plume_modal_process.F90)
+target_link_libraries(urban_plume_modal_process partmclib)
+
+>>>>>>> Stashed changes
 ######################################################################
 # scenarios/4_chamber/chamber_process
 
