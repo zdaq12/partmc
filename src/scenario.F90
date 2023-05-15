@@ -520,6 +520,114 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Compute and return the integrated dry deposition rate for a given
+  !> lognormal aerosol mode.
+  real(kind=dp) function scenario_integrated_loss_rate_dry_dep(aero_mode, &
+      moment, density, env_state)
+
+    !> Aerosol mode.
+    type(aero_mode_t), intent(in) :: aero_mode
+    !> Moment to calculate loss rate for.
+    real(kind=dp), intent(in) :: moment
+    !> Particle density assumed for entire mode (kg m^-3).
+    real(kind=dp), intent(in) :: density
+    !> Environment state.
+    type(env_state_t), intent(in) :: env_state
+
+    real(kind=dp) :: V_d_hat, V_g_hat
+    real(kind=dp) :: V_g
+    real(kind=dp) :: d_pg, ln_sigma_g
+    real(kind=dp) :: density_air
+    real(kind=dp) :: visc_d, visc_k
+    real(kind=dp) :: gas_speed, gas_mean_free_path
+    real(kind=dp) :: knud, cunning
+    real(kind=dp) :: alpha, beta, gamma, A, eps_0
+    real(kind=dp) :: D, D_hat
+    real(kind=dp) :: St, Sc
+    real(kind=dp) :: u_mean, u_star, z_ref, z_rough
+    real(kind=dp) :: R_a, R_s
+    real(kind=dp) :: E_B, E_IN, E_IM, R1
+
+    ! Hardcoded meteorological variables and
+    ! parameterization-dependent LUC values.
+    z_ref = 20.0d0 ! Reference height
+    u_mean = 5.0d0 ! Mean wind speed at reference height
+    ! LUC 7 (crops, mixed farming) from Zhang et al., 2001
+    z_rough = .1d0
+    A = 2.0d0 / 1000.0d0
+    alpha = 1.2d0
+    beta = 2.0d0
+    gamma = .54d0
+    eps_0 = 3.0d0
+
+    ! particle diameter equal to geometric mean diameter
+    d_pg = aero_mode%char_radius * 2.0d0
+    ! natural log of geometric standard deviation
+    ln_sigma_g = aero_mode%log10_std_dev_radius / log10(exp(1.0d0))
+    ! density of air
+    density_air = (const%air_molec_weight * env_state%pressure) &
+         / (const%univ_gas_const * env_state%temp)
+    ! dynamic viscosity
+    visc_d = 1.8325d-5 * (416.16 / (env_state%temp + 120.0d0)) &
+         * (env_state%temp / 296.16)**1.5d0
+    ! kinematic viscosity
+    visc_k = visc_d / density_air
+    ! gas speed
+    gas_speed = &
+         sqrt((8.0d0 * const%boltzmann * env_state%temp * const%avagadro) / &
+         (const%pi * const%air_molec_weight))
+    ! gas mean free path
+    gas_mean_free_path = (2.0d0 * visc_d) / (density_air * gas_speed)
+    ! Knudsen number
+    knud = (2.0d0 * gas_mean_free_path) / d_pg
+    ! Cunningham slip correction factor
+    cunning = 1.0d0 + knud * (1.257d0 + 0.4d0 * exp(-1.1d0 / knud))
+    ! Settling velcoity
+    V_g = (density * d_pg**2.0d0 * const%std_grav * cunning) / (18.0d0 * visc_d)
+
+    ! Compute integrated settling velocity
+    V_g_hat = V_g * (exp((4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
+          knud * exp((2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0))
+
+    ! Aerodynamic resistance (assuming neutral stability)
+    u_star = 0.4d0 * u_mean / log(z_ref / z_rough)
+    R_a = (1.0d0 / (0.4d0 * u_star)) * log(z_ref / z_rough)
+
+    ! Brownian diffusivity
+    D = (const%boltzmann * env_state%temp * cunning) / &
+         (3.0d0 * const%pi * visc_d * d_pg)
+    ! Compute integrated Brownian diffusivity
+    D_hat = D * ((exp((-2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
+          knud * exp((-4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0)))
+    ! Schmidt number based on integrated diffusivity
+    Sc = visc_k / D_hat
+    ! Collection efficiency due to Brownian diffusion
+    E_B = Sc**(-gamma)
+
+    ! Collection efficiency due to interception
+    E_IN = 0.5d0 * (d_pg / A)**2.0d0
+
+    ! Stokes number based on integrated settling velcity
+    St = (V_g_hat * u_star) / (const%std_grav * A)
+    ! Collection efficiency due to impaction
+    E_IM = (St / (alpha + St))**beta
+
+    ! Rebound correction
+    R1 = exp(-St**0.5d0)
+
+    ! Surface resistance
+    R_s = 1.0d0 / (eps_0 * u_star * (E_B + E_IN + E_IM) * R1)
+
+    ! Integrated deposition velocity
+    V_d_hat = V_g_hat + (1.0d0 / (R_a + R_s + R_a * R_s * V_g_hat))
+
+    ! Loss rate
+    scenario_integrated_loss_rate_dry_dep = V_d_hat / env_state%height
+
+  end function scenario_integrated_loss_rate_dry_dep
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !> Compute and return the max loss rate function for a given volume.
   real(kind=dp) function scenario_loss_rate_max(scenario, vol, aero_data, &
        env_state)
