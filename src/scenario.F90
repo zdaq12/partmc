@@ -359,17 +359,17 @@ contains
     call aero_binned_add_scaled(aero_binned, emissions_binned, p)
 
     ! dilution
-    call aero_dist_interp_1d(scenario%aero_background, &
-         scenario%aero_dilution_time, scenario%aero_dilution_rate, &
-         env_state%elapsed_time, background, dilution_rate)
-    call aero_binned_add_aero_dist(background_binned, bin_grid, aero_data, &
-         background)
-    p = exp(- dilution_rate * delta_t)
-    if (env_state%height > old_env_state%height) then
-       p = p * old_env_state%height / env_state%height
-    end if
-    call aero_binned_scale(aero_binned, p)
-    call aero_binned_add_scaled(aero_binned, background_binned, 1d0 - p)
+   !  call aero_dist_interp_1d(scenario%aero_background, &
+   !       scenario%aero_dilution_time, scenario%aero_dilution_rate, &
+   !       env_state%elapsed_time, background, dilution_rate)
+   !  call aero_binned_add_aero_dist(background_binned, bin_grid, aero_data, &
+   !       background)
+   !  p = exp(- dilution_rate * delta_t)
+   !  if (env_state%height > old_env_state%height) then
+   !     p = p * old_env_state%height / env_state%height
+   !  end if
+   !  call aero_binned_scale(aero_binned, p)
+   !  call aero_binned_add_scaled(aero_binned, background_binned, 1d0 - p)
 
   end subroutine scenario_update_aero_binned
 
