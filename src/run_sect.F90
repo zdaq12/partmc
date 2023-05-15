@@ -86,8 +86,10 @@ contains
     type(aero_binned_t) :: aero_binned
     type(gas_state_t) :: gas_state
 
-    integer i, j, i_time, num_t, i_summary
+    integer i, j, i_time, num_t, i_summary, i_bin
     logical do_output, do_progress
+    real(kind=dp) removed, mass_init, mass_final
+    real(kind=dp), allocatable :: old_mass_conc(:)
 
     call check_time_multiple("t_max", run_sect_opt%t_max, &
          "del_t", run_sect_opt%del_t)
@@ -126,6 +128,7 @@ contains
     last_progress_time = 0d0
     time = 0d0
     i_summary = 1
+    removed = 0d0
 
     ! precompute kernel values for all pairs of bins
     call bin_kernel(bin_grid_size(bin_grid), bin_grid%centers, aero_data, &
@@ -153,6 +156,13 @@ contains
             time, run_sect_opt%t_output, run_sect_opt%uuid)
     end if
 
+    do i_bin = 1,bin_grid_size(bin_grid)
+      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
+      mass_init = mass_init + old_mass_conc(1)
+    end do
+
+    print *, "Initial mass: ", mass_init
+
     ! main time-stepping loop
     num_t = nint(run_sect_opt%t_max / run_sect_opt%del_t)
     do i_time = 1, num_t
@@ -175,6 +185,8 @@ contains
             env_state, old_env_state, gas_data, gas_state)
        call scenario_update_aero_binned(scenario, run_sect_opt%del_t, &
             env_state, old_env_state, bin_grid, aero_data, aero_binned)
+       call scenario_binned_loss(scenario, bin_grid, run_sect_opt%del_t, &
+            aero_data, env_state, aero_binned, removed)
 
        ! print output
        call check_event(time, run_sect_opt%del_t, run_sect_opt%t_output, &
@@ -194,6 +206,15 @@ contains
           write(*,'(i6,f8.1)') i_time, time
        end if
     end do
+
+    do i_bin = 1,bin_grid_size(bin_grid)
+      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
+      mass_final = mass_final + old_mass_conc(1)
+    end do
+
+    print *, "Final mass: ", mass_final
+    print *, "Removed: ", removed
+    print *, "(Final mass) + (Removed) = ", mass_final + removed
 
   end subroutine run_sect
 
