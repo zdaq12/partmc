@@ -782,11 +782,40 @@ contains
           aero_binned%vol_conc(i_bin, :) = new_vol_conc
           aero_binned%num_conc(i_bin) = new_vol_conc / aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
        end do
-    else 
+    else
        return
-    end if 
+    end if
 
   end subroutine scenario_binned_loss
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Updates an array (of size equal to the number of section) containing the
+  !> dry deposition loss rate for each bin in a sectional simulation.
+  subroutine scenario_section_dry_dep_rates(bin_grid, aero_data, env_state, &
+       rates)
+
+    !> Bin grid.
+    type(bin_grid_t), intent(in) :: bin_grid
+    !> Aerosol data.
+    type(aero_data_t), intent(in) :: aero_data
+    !> Environmental state.
+    type(env_state_t), intent(in) :: env_state
+    !> Loss rates for each section/bin.
+    real(kind=dp), intent(inout) :: rates(:)
+
+    integer :: i_bin
+    real(kind=dp) :: density, vol
+
+    density = aero_data%density(1)
+
+    do i_bin = 1,bin_grid_size(bin_grid)
+       vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
+       rates(i_bin) = scenario_loss_rate_dry_dep(vol, density, aero_data, &
+          env_state) * env_state%height
+    end do
+
+end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
