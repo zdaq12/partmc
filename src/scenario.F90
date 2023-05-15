@@ -375,6 +375,77 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  subroutine scenario_update_aero_modes(aero_dist, del_t, env_state, density, &
+       scenario, removed)
+    !> Aerosol distribution.
+    type(aero_dist_t), intent(inout) :: aero_dist
+    !> Timestep.
+    real(kind=dp), intent(in) :: del_t
+    !> Environment state.
+    type(env_state_t), intent(in) :: env_state
+    !> Density for each mode.
+    real(kind=dp), intent(in) :: density
+    !> Scenario
+    type(scenario_t), intent(inout) :: scenario
+    !> Removed (third moment)
+    real(kind=dp), intent(inout) :: removed
+
+    !> Current mode
+    type(aero_mode_t) :: aero_mode
+
+    real(kind=dp) :: N, d_pg, ln_sigma_g
+    real(kind=dp) :: m_0_rate, m_3_rate
+    real(kind=dp) :: M, new_M
+    real(kind=dp) :: new_N, new_d_pg
+    integer :: i_mode
+
+    if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_INVALID) then
+       return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_NONE) then
+       return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_CONSTANT) then
+       return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) then
+       ! loss
+      do i_mode = 1,aero_dist_n_mode(aero_dist)
+          aero_mode = aero_dist%mode(i_mode)
+          N = aero_mode%num_conc
+
+          if (N == 0d0) then
+             cycle
+          end if
+
+       d_pg = aero_mode%char_radius * 2.0d0
+       ln_sigma_g = aero_mode%log10_std_dev_radius / log10(exp(1.0d0))
+
+       ! Integrated deposition rate for 0-th moment (exactly equal to number conc.)
+       m_0_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 0.0d0, density, env_state)
+       new_N = N * exp(m_0_rate * del_t)
+
+       if (new_N < 1d0) then
+          aero_dist%mode(i_mode)%num_conc = 0d0
+          aero_dist%mode(i_mode)%char_radius = 0d0
+          cycle
+       end if
+
+       aero_dist%mode(i_mode)%num_conc = new_N
+
+       ! Integrated deposition rate for 3-rd moment (proportional to volume conc.)
+       m_3_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 3.0d0, density, env_state)
+       M = N * d_pg**3.0d0 * exp((3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0))
+       new_M = M * exp(m_3_rate * del_t)
+       removed = removed + (M - new_M)
+
+       ! New geometric mean diameter
+       new_d_pg = (new_M / new_N * exp(-(3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0)))**(1.0d0/3.0d0)
+            aero_dist%mode(i_mode)%char_radius = new_d_pg / 2.0d0
+      end do
+    end if
+
+  end subroutine scenario_update_aero_modes
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !> Evaluate a loss rate function.
   real(kind=dp) function scenario_loss_rate(scenario, vol, density, &
        aero_data, env_state)
@@ -625,6 +696,34 @@ contains
     scenario_integrated_loss_rate_dry_dep = V_d_hat / env_state%height
 
   end function scenario_integrated_loss_rate_dry_dep
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Updates a given array to contain the integrated deposition rates for the
+  !> given moment of each aerosol mode in the distribution.
+  subroutine scenario_modal_dry_dep_rates(aero_dist, moment, density, &
+      env_state, rates)
+
+    !> Aerosol distribution.
+    type(aero_dist_t), intent(in) :: aero_dist
+    !> Moment to compute rate for.
+    real(kind=dp), intent(in) :: moment
+    !> Density for the mode.
+    real(kind=dp), intent(in) :: density
+    !> Environment state.
+    type(env_state_t), intent(in) :: env_state
+    !> Rates.
+    real(kind=dp), intent(inout) :: rates(:)
+
+    integer :: i_mode, n_mode
+
+    do i_mode = 1,size(rates)
+       rates(i_mode) = scenario_integrated_loss_rate_dry_dep( &
+          aero_dist%mode(i_mode), moment, density, env_state) &
+          * env_state%height
+    end do
+
+  end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
