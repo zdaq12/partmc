@@ -268,6 +268,37 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Write full state.
+  subroutine aero_dist_output_netcdf(aero_dist, ncid)
+
+    !> Aerosol distribution to write.
+    type(aero_dist_t), intent(in) :: aero_dist
+    !> NetCDF file ID, in data mode.
+    integer, intent(in) :: ncid
+
+    integer :: i_mode
+    type(aero_mode_t) :: aero_mode
+    character(len=1) :: num
+
+    do i_mode = 1,aero_dist_n_mode(aero_dist)
+      aero_mode = aero_dist%mode(i_mode)
+      write(num, '(I1.1)') i_mode
+      call pmc_nc_write_real(ncid, aero_mode%char_radius, "char_radius_mode_" &
+           // trim(num), unit="m")
+      call pmc_nc_write_real(ncid, aero_mode%log10_std_dev_radius, "std_dev_mode_" &
+           // trim(num), unit="1", description="log base 10 of geometric standard" &
+           // " deviation of radius")
+      call pmc_nc_write_real(ncid, aero_mode%num_conc, "num_conc_mode_" &
+           // trim(num), unit="m^-3", description="total number concentration for mode")
+    end do
+
+    call pmc_nc_write_integer(ncid, aero_dist_n_mode(aero_dist), "num_modes", &
+         description="total number of modes")
+
+  end subroutine aero_dist_output_netcdf
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !> Read an array of aero_dists with associated times and rates from
   !> the given file.
   subroutine spec_file_read_aero_dists_times_rates(file, aero_data, &
