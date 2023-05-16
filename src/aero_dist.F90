@@ -299,6 +299,39 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Read full state.
+  subroutine aero_dist_input_netcdf(aero_dist, ncid)
+
+    !> Aerosol distribution to read.
+    type(aero_dist_t), intent(inout) :: aero_dist
+    !> NetCDF file ID, in data mode
+    integer, intent(in) :: ncid
+
+    integer :: i_mode, n_mode
+    character(len=1) :: num
+    type(aero_mode_t), allocatable :: modes(:)
+
+    call pmc_nc_read_integer(ncid, n_mode, "num_modes")
+    print *, "n_mode", n_mode
+    allocate(modes(n_mode))
+
+    do i_mode=1,n_mode
+      print *, "Inside input loop"
+      write(num, '(I1.1)') i_mode
+      call pmc_nc_read_real(ncid, modes(i_mode)%char_radius, "char_radius_mode_" &
+           // trim(num))
+      call pmc_nc_read_real(ncid, modes(i_mode)%log10_std_dev_radius, "std_dev_mode_" &
+          // trim(num))
+      call pmc_nc_read_real(ncid, modes(i_mode)%num_conc, "num_conc_mode_" &
+           // trim(num))
+    end do
+
+    aero_dist%mode = modes
+
+  end subroutine aero_dist_input_netcdf
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !> Read an array of aero_dists with associated times and rates from
   !> the given file.
   subroutine spec_file_read_aero_dists_times_rates(file, aero_data, &
