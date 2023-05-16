@@ -71,7 +71,7 @@ contains
       i_summary = 1
       last_output = 0d0
       last_progress = 0d0
-      removed = 0d0s
+      removed = 0d0
 
       ! Initialize mass
       m_3_init = 0d0
