@@ -35,6 +35,11 @@ module pmc_scenario
   !> Type code for a loss rate function for chamber experiments.
   integer, parameter :: SCENARIO_LOSS_FUNCTION_CHAMBER  = 5
 
+  !> Type code for Zhang et al., 2001 dry deposition parameterization.
+  integer, parameter :: SCENARIO_DRYDEP_ZHANG   = 0
+  !> Type code for Emeroson et al., 2020 dry deposition parameterization.
+  integer, parameter :: SCENARIO_DRYDEP_EMERSON = 1
+
   !> Parameter to switch between algorithms for particle loss.
   !! A value of 0 will always use the naive algorithm, and
   !! a value of 1 will always use the accept-reject algorithm.
@@ -97,6 +102,8 @@ module pmc_scenario
 
      !> Type of loss rate function.
      integer :: loss_function_type
+     !> Parameterization for dry deposition.
+     integer :: drydep_param
      !> Chamber parameters for wall loss and sedimentation.
      type(chamber_t) :: chamber
   end type scenario_t
@@ -377,6 +384,7 @@ contains
 
   subroutine scenario_update_aero_modes(aero_dist, del_t, env_state, density, &
        scenario, removed)
+
     !> Aerosol distribution.
     type(aero_dist_t), intent(inout) :: aero_dist
     !> Timestep.
@@ -419,7 +427,8 @@ contains
        ln_sigma_g = aero_mode%log10_std_dev_radius / log10(exp(1.0d0))
 
        ! Integrated deposition rate for 0-th moment (exactly equal to number conc.)
-       m_0_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 0.0d0, density, env_state)
+       m_0_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(scenario, aero_mode, &
+          0.0d0, density, env_state)
        new_N = N * exp(m_0_rate * del_t)
 
        if (new_N < 1d0) then
@@ -431,7 +440,8 @@ contains
        aero_dist%mode(i_mode)%num_conc = new_N
 
        ! Integrated deposition rate for 3-rd moment (proportional to volume conc.)
-       m_3_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 3.0d0, density, env_state)
+       m_3_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(scenario, aero_mode, 3.0d0, &
+          density, env_state)
        M = N * d_pg**3.0d0 * exp((3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0))
        new_M = M * exp(m_3_rate * del_t)
        removed = removed + (M - new_M)
@@ -593,9 +603,11 @@ contains
 
   !> Compute and return the integrated dry deposition rate for a given
   !> lognormal aerosol mode.
-  real(kind=dp) function scenario_integrated_loss_rate_dry_dep(aero_mode, &
-      moment, density, env_state)
+  real(kind=dp) function scenario_integrated_loss_rate_dry_dep(scenario, &
+      aero_mode, moment, density, env_state)
 
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
     !> Aerosol mode.
     type(aero_mode_t), intent(in) :: aero_mode
     !> Moment to calculate loss rate for.
@@ -612,12 +624,13 @@ contains
     real(kind=dp) :: visc_d, visc_k
     real(kind=dp) :: gas_speed, gas_mean_free_path
     real(kind=dp) :: knud, cunning
-    real(kind=dp) :: alpha, beta, gamma, A, eps_0
+    real(kind=dp) :: alpha, beta, gamma, A, eps_0, nu
     real(kind=dp) :: D, D_hat
     real(kind=dp) :: St, Sc
     real(kind=dp) :: u_mean, u_star, z_ref, z_rough
     real(kind=dp) :: R_a, R_s
     real(kind=dp) :: E_B, E_IN, E_IM, R1
+    real(kind=dp) :: C_B, C_IN, C_IM
 
     ! Hardcoded meteorological variables and
     ! parameterization-dependent LUC values.
@@ -627,9 +640,23 @@ contains
     z_rough = .1d0
     A = 2.0d0 / 1000.0d0
     alpha = 1.2d0
-    beta = 2.0d0
-    gamma = .54d0
     eps_0 = 3.0d0
+
+    if (scenario%drydep_param == SCENARIO_DRYDEP_EMERSON) then
+       gamma = 2.0d0 / 3.0d0 ! Not dependent on LUC
+       C_B = .2d0
+       C_IN = 2.5d0
+       C_IM = .4d0
+       nu = .8d0
+       beta = 1.7d0
+    else if (scenario%drydep_param == SCENARIO_DRYDEP_ZHANG) then
+       gamma = .54d0 ! LUC-dependent for default param.
+       C_B = 1.0d0
+       C_IN = .5d0
+       C_IM = 1.0d0
+       nu = 2.0d0
+       beta = 2.0d0
+    end if
 
     ! particle diameter equal to geometric mean diameter
     d_pg = aero_mode%char_radius * 2.0d0
@@ -673,15 +700,15 @@ contains
     ! Schmidt number based on integrated diffusivity
     Sc = visc_k / D_hat
     ! Collection efficiency due to Brownian diffusion
-    E_B = Sc**(-gamma)
+    E_B = C_B * Sc**(-gamma)
 
     ! Collection efficiency due to interception
-    E_IN = 0.5d0 * (d_pg / A)**2.0d0
+    E_IN = C_IN * (d_pg / A)**nu
 
     ! Stokes number based on integrated settling velcity
     St = (V_g_hat * u_star) / (const%std_grav * A)
     ! Collection efficiency due to impaction
-    E_IM = (St / (alpha + St))**beta
+    E_IM = C_IM * (St / (alpha + St))**beta
 
     ! Rebound correction
     R1 = exp(-St**0.5d0)
@@ -701,9 +728,11 @@ contains
 
   !> Updates a given array to contain the integrated deposition rates for the
   !> given moment of each aerosol mode in the distribution.
-  subroutine scenario_modal_dry_dep_rates(aero_dist, moment, density, &
-      env_state, rates)
+  subroutine scenario_modal_dry_dep_rates(scenario, aero_dist, moment, &
+      density, env_state, rates)
 
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
     !> Aerosol distribution.
     type(aero_dist_t), intent(in) :: aero_dist
     !> Moment to compute rate for.
@@ -719,7 +748,7 @@ contains
 
     do i_mode = 1,size(rates)
        rates(i_mode) = scenario_integrated_loss_rate_dry_dep( &
-          aero_dist%mode(i_mode), moment, density, env_state) &
+          scenario, aero_dist%mode(i_mode), moment, density, env_state) &
           * env_state%height
     end do
 
@@ -1074,6 +1103,15 @@ contains
        scenario%loss_function_type = SCENARIO_LOSS_FUNCTION_VOLUME
     else if (trim(function_name) == 'drydep') then
        scenario%loss_function_type = SCENARIO_LOSS_FUNCTION_DRYDEP
+       call spec_file_read_string(file, "drydep_param", function_name)
+       if (trim(function_name) == 'Zhang_2001') then
+          scenario%drydep_param = SCENARIO_DRYDEP_ZHANG
+       else if (trim(function_name) == 'Emerson_2020') then
+          scenario%drydep_param = SCENARIO_DRYDEP_EMERSON
+       else
+          call die_msg(204516114, "Unknown dry deposition parameterization: " &
+            // trim(function_name))
+       end if
     else if (trim(function_name) == 'chamber') then
        scenario%loss_function_type = SCENARIO_LOSS_FUNCTION_CHAMBER
        call spec_file_read_chamber(file, scenario%chamber)
