@@ -11,17 +11,17 @@ d_min 1e-11                          # minimum diameter (m)
 d_max 2                              # maximum diameter (m)
 
 gas_data gas_data.dat                # file containing gas data
-aerosol_data sect_aero_data.dat      # file containing aerosol data
+aerosol_data modal_aero_data.dat      # file containing aerosol data
 do_fractal no                        # whether to do fractal treatment 
-aerosol_init aero_init_dist.dat      # aerosol initial condition file
+aerosol_init modal_aero_init_dist.dat      # aerosol initial condition file
 
 temp_profile temp.dat                # temperature profile file
 pressure_profile pres.dat            # pressure profile file
 height_profile height.dat            # height profile file
 gas_emissions gas_emit.dat           # gas emissions file
 gas_background gas_back.dat          # background gas concentrations file
-aero_emissions aero_emit.dat         # aerosol emissions file
-aero_background aero_back.dat        # aerosol background file
+aero_emissions modal_aero_emit.dat         # aerosol emissions file
+aero_background modal_aero_back.dat        # aerosol background file
 loss_function drydep                 # loss function specification
 drydep_param Zhang_2001              # dry deposition parameterization (Zhang_2001 or Emerson_2020)
 
