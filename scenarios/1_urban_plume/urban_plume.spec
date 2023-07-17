@@ -1,7 +1,7 @@
 run_type particle               # particle-resolved run
-output_prefix out/urban_plume   # prefix of output files
+output_prefix out/no_emiss_dep_big_part_urban_plume   # prefix of output files
 n_repeat 3                      # number of Monte Carlo repeats
-n_part 1000                     # total number of particles
+n_part 10000                     # total number of particles
 restart no                      # whether to restart from saved state (yes/no)
 
 t_max 86400                     # total simulation time (s)
@@ -14,7 +14,7 @@ do_camp_chem no                 # whether to use CAMP for chemistry
 gas_data gas_data.dat           # file containing gas data
 gas_init gas_init.dat           # initial gas concentrations
 
-aerosol_data aero_data.dat      # file containing aerosol data
+aerosol_data sect_aero_data.dat # file containing aerosol data
 do_fractal no                   # whether to do fractal treatment
 aerosol_init aero_init_dist.dat # aerosol initial condition file
 
@@ -25,7 +25,7 @@ gas_emissions gas_emit.dat      # gas emissions file
 gas_background gas_back.dat     # background gas concentrations file
 aero_emissions aero_emit.dat    # aerosol emissions file
 aero_background aero_back.dat   # aerosol background file
-loss_function none              # loss function specification
+loss_function none            # loss function specification
 
 rel_humidity 0.95               # initial relative humidity (1)
 latitude 0                      # latitude (degrees, -90 to 90)
@@ -34,11 +34,11 @@ altitude 0                      # altitude (m)
 start_time 21600                # start time (s since 00:00 UTC)
 start_day 200                   # start day of year (UTC)
 
-do_coagulation yes              # whether to do coagulation (yes/no)
-coag_kernel brown               # coagulation kernel
+do_coagulation no              # whether to do coagulation (yes/no)
+#coag_kernel brown               # coagulation kernel
 do_condensation no              # whether to do condensation (yes/no)
-do_mosaic yes                   # whether to do MOSAIC (yes/no)
-do_optical yes                  # whether to compute optical props (yes/no)
+do_mosaic no                   # whether to do MOSAIC (yes/no)
+#do_optical no                  # whether to compute optical props (yes/no)
 do_nucleation no                # whether to do nucleation (yes/no)
 
 rand_init 0                     # random initialization (0 to use time)

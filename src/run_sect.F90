@@ -86,8 +86,10 @@ contains
     type(aero_binned_t) :: aero_binned
     type(gas_state_t) :: gas_state
 
-    integer i, j, i_time, num_t, i_summary
+    integer i, j, i_time, num_t, i_summary, i_bin
     logical do_output, do_progress
+    real(kind=dp) removed, mass_init, mass_final, num_conc_i, num_conc_f
+    real(kind=dp), allocatable :: old_mass_conc(:)
 
     call check_time_multiple("t_max", run_sect_opt%t_max, &
          "del_t", run_sect_opt%del_t)
@@ -126,6 +128,7 @@ contains
     last_progress_time = 0d0
     time = 0d0
     i_summary = 1
+    removed = 0d0
 
     ! precompute kernel values for all pairs of bins
     call bin_kernel(bin_grid_size(bin_grid), bin_grid%centers, aero_data, &
@@ -153,6 +156,16 @@ contains
             time, run_sect_opt%t_output, run_sect_opt%uuid)
     end if
 
+    do i_bin = 1,bin_grid_size(bin_grid)
+      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
+      mass_init = mass_init + old_mass_conc(1)
+    end do
+
+    num_conc_i = sum(aero_binned%num_conc * bin_grid%widths)
+
+    print *, "Initial mass: ", mass_init
+    write(*, '(A, ES12.4)') "Initial num conc: ", num_conc_i
+
     ! main time-stepping loop
     num_t = nint(run_sect_opt%t_max / run_sect_opt%del_t)
     do i_time = 1, num_t
@@ -173,8 +186,11 @@ contains
        call scenario_update_env_state(scenario, env_state, time)
        call scenario_update_gas_state(scenario, run_sect_opt%del_t, &
             env_state, old_env_state, gas_data, gas_state)
-       call scenario_update_aero_binned(scenario, run_sect_opt%del_t, &
-            env_state, old_env_state, bin_grid, aero_data, aero_binned)
+      !  call scenario_update_aero_binned(scenario, run_sect_opt%del_t, &
+      !       env_state, old_env_state, bin_grid, aero_data, aero_binned, &
+      !       removed)
+       call scenario_binned_loss(scenario, bin_grid, run_sect_opt%del_t, &
+            aero_data, env_state, aero_binned, removed)
 
        ! print output
        call check_event(time, run_sect_opt%del_t, run_sect_opt%t_output, &
@@ -190,10 +206,23 @@ contains
        call check_event(time, run_sect_opt%del_t, run_sect_opt%t_progress, &
             last_progress_time, do_progress)
        if (do_progress) then
-          write(*,'(a6,a8)') 'step', 'time'
-          write(*,'(i6,f8.1)') i_time, time
+         !  write(*,'(a6,a8)') 'step', 'time'
+         !  write(*,'(i6,f8.1)') i_time, time
        end if
     end do
+
+    do i_bin = 1,bin_grid_size(bin_grid)
+      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
+      mass_final = mass_final + old_mass_conc(1)
+    end do 
+
+    num_conc_f = sum(aero_binned%num_conc * bin_grid%widths)
+
+    print *, "Final mass: ", mass_final
+    print *, "Removed mass: ", removed
+    print *, "(Final mass) + (Removed mass) = ", mass_final + removed
+    write(*, '(A, ES12.4)') "Final num conc: ", num_conc_f
+    write(*, '(A, ES12.4)') "Removed num conc: ", num_conc_i - num_conc_f
 
   end subroutine run_sect
 

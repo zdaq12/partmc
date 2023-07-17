@@ -16,6 +16,7 @@ module pmc_aero_mode
   use pmc_aero_weight
   use pmc_mpi
   use pmc_rand
+  use pmc_netcdf
 #ifdef PMC_USE_MPI
   use mpi
 #endif

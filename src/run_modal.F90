@@ -7,7 +7,6 @@ module pmc_run_modal
 
     use pmc_util
     use pmc_aero_dist
-    use pmc_aero_mode
     use pmc_scenario
     use pmc_env_state
     use pmc_aero_data
@@ -16,6 +15,7 @@ module pmc_run_modal
     use pmc_aero_binned
     use pmc_gas_data
     use pmc_gas_state
+    use pmc_constants
 
     !> Options controlling the operation of run_modal()
     type run_modal_opt_t
@@ -39,7 +39,7 @@ contains
 
     !> Run a modal simulation.
     subroutine run_modal(aero_data, aero_dist, scenario, env_state, &
-        gas_data, run_modal_opt)
+        gas_data, bin_grid, run_modal_opt)
 
       !> Aerosol data.
       type(aero_data_t), intent(in) :: aero_data
@@ -51,28 +51,39 @@ contains
       type(env_state_t), intent(inout) :: env_state
       !> Gas data.
       type(gas_data_t), intent(in) :: gas_data
+      !> Bin grid.
+      type(bin_grid_t), intent(in) :: bin_grid
       !> Modal options.
       type(run_modal_opt_t), intent(in) :: run_modal_opt
 
       type(env_state_t) :: old_env_state
       type(gas_state_t) :: gas_state
       type(aero_binned_t) :: aero_binned
-      type(bin_grid_t) :: bin_grid
 
-      real(kind=dp) time, last_output_time, last_progress_time, vol
+      real(kind=dp) time, last_output, last_progress, vol
+      real(kind=dp) removed, ln_sigma_g, m_3_init, m_3_final
 
-      integer i, i_time, n_time, i_summary
+      integer i, i_time, n_time, i_summary, i_mode, mode
       logical do_output, do_progress
 
       ! Initialize time.
       time = 0d0
       i_summary = 1
-      last_progress_time = 0d0
+      last_output = 0d0
+      last_progress = 0d0
+      removed = 0d0
 
-     !  print *, "Initial mode 1 num conc: ", aero_dist%mode(1)%num_conc
-     !  print *, "Initial mode 1 char radius: ", aero_dist%mode(1)%char_radius
-     !  print *, "Initial mode 2 num conc: ", aero_dist%mode(2)%num_conc
-     !  print *, "Initial mode 2 char radius: ", aero_dist%mode(2)%char_radius
+      ! Initialize mass
+      m_3_init = 0d0
+      m_3_final =0d0
+
+      i_mode = aero_dist_n_mode(aero_dist)
+      do mode = 1,i_mode
+         ln_sigma_g = aero_dist%mode(mode)%log10_std_dev_radius / log10(exp(1.0d0))
+         m_3_init = m_3_init + aero_dist%mode(mode)%num_conc * (aero_dist%mode(mode)%char_radius * 2.0d0)**3 &
+                * exp((3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0)) * const%pi / 6.0d0 * aero_data%density(1)
+      end do
+      print *, "Initial mass: ", m_3_init
 
       call check_time_multiple("t_max", run_modal_opt%t_max, &
            "del_t", run_modal_opt%del_t)
@@ -89,21 +100,17 @@ contains
       ! output data structure
       call gas_state_set_size(gas_state, gas_data_n_spec(gas_data))
 
-      ! make bin grid and initial distributions
-      call bin_grid_make(bin_grid, BIN_GRID_TYPE_LOG, 180, 1d-9, 1d-3)
-      call aero_binned_add_aero_dist(aero_binned, bin_grid, aero_data, &
-           aero_dist)
-
       ! initial output
       call check_event(time, run_modal_opt%del_t, run_modal_opt%t_output, &
-           last_output_time, do_output)
+           last_output, do_output)
       if (do_output) then
-        call output_modal(run_modal_opt%prefix, aero_binned, aero_data, &
+        call aero_binned_add_aero_dist(aero_binned, bin_grid, aero_data, &
+             aero_dist)
+        call output_modal(run_modal_opt%prefix, aero_binned, aero_dist, aero_data, &
              env_state, gas_data, gas_state, bin_grid, i_summary, time, &
-             run_modal_opt%t_output, run_modal_opt%uuid)
+             run_modal_opt%del_t, run_modal_opt%uuid)
+        call aero_binned_zero(aero_binned)
       end if
-
-      call aero_binned_zero(aero_binned)
 
       ! Main time-stepping loop
       n_time = nint(run_modal_opt%t_max / run_modal_opt%del_t)
@@ -113,55 +120,44 @@ contains
              / real(n_time, kind=dp)
 
         old_env_state = env_state
+
         call scenario_update_env_state(scenario, env_state, time)
         call scenario_update_gas_state(scenario, run_modal_opt%del_t, &
              env_state, old_env_state, gas_data, gas_state)
         call scenario_update_aero_modes(aero_dist, run_modal_opt%del_t, &
-             env_state, aero_data%density(1), aero_data)
+             env_state, aero_data%density(1), scenario, removed)
 
-        call aero_binned_add_aero_dist(aero_binned, bin_grid, aero_data, &
-             aero_dist)
-
-        if (i_time < 5) then
-          print *, "timestep: ", i_time
-
-          print *, "Mode 1 num conc: ", aero_dist%mode(1)%num_conc
-          print *, "Mode 1 char radius: ", aero_dist%mode(1)%char_radius
-          vol = aero_data_diam2vol(aero_data, aero_dist%mode(1)%char_radius)
-          print *, "Mode 1 Rate: ", scenario_loss_rate_dry_dep(vol, aero_data%density(1), aero_data, env_state)
-
-          print *, "Mode 2 num conc: ", aero_dist%mode(2)%num_conc
-          print *, "Mode 2 char radius: ", aero_dist%mode(2)%char_radius
-          vol = aero_data_diam2vol(aero_data, aero_dist%mode(2)%char_radius)
-          print *, "Mode 1 Rate: ", scenario_loss_rate_dry_dep(vol, aero_data%density(1), aero_data, env_state)
-        end if
-
-        ! print output
         call check_event(time, run_modal_opt%del_t, run_modal_opt%t_output, &
-             last_output_time, do_output)
+             last_output, do_output)
         if (do_output) then
           i_summary = i_summary + 1
-          call output_modal(run_modal_opt%prefix, aero_binned, aero_data, &
+          call aero_binned_add_aero_dist(aero_binned, bin_grid, aero_data, &
+               aero_dist)
+          call output_modal(run_modal_opt%prefix, aero_binned, aero_dist, aero_data, &
                env_state, gas_data, gas_state, bin_grid, i_summary, time, &
-               run_modal_opt%t_output, run_modal_opt%uuid)
+               run_modal_opt%del_t, run_modal_opt%uuid)
+          call aero_binned_zero(aero_binned)
         end if
 
-        ! print progress to stdout
         call check_event(time, run_modal_opt%del_t, run_modal_opt%t_progress, &
-             last_progress_time, do_progress)
+             last_progress, do_progress)
         if (do_progress) then
-          write(*, "(a6,a8)") "step", "time"
-          write(*, "(i6,f8.1)") i_time, time
+          write(*, '(a6,a8)') 'step', 'time'
+          write(*, '(i6,f8.1)') i_time, time
         end if
-
-        call aero_binned_zero(aero_binned)
-
       end do
 
+      do mode = 1,i_mode
+         ln_sigma_g = aero_dist%mode(mode)%log10_std_dev_radius / log10(exp(1.0d0))
+         m_3_final = m_3_final + aero_dist%mode(mode)%num_conc * (aero_dist%mode(mode)%char_radius * 2.0d0)**3 &
+                * exp((3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0)) * const%pi / 6.0d0 * aero_data%density(1)
+      end do
+
+      print *, "Final mass: ", m_3_final
+      print *, "Removed: ", removed * const%pi / 6.0d0 * aero_data%density(1)
+      print *, "(Final mass) + (Removed) = ", removed * const%pi / 6.0d0 * aero_data%density(1) + m_3_final
+
     end subroutine run_modal
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

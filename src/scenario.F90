@@ -18,7 +18,9 @@ module pmc_scenario
   use pmc_aero_data
   use pmc_gas_data
   use pmc_chamber
+  use pmc_netcdf
   use pmc_mpi
+
 #ifdef PMC_USE_MPI
   use mpi
 #endif
@@ -324,6 +326,77 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  subroutine scenario_update_aero_modes(aero_dist, del_t, env_state, density, &
+       scenario, removed)
+    !> Aerosol distribution.
+    type(aero_dist_t), intent(inout) :: aero_dist
+    !> Timestep.
+    real(kind=dp), intent(in) :: del_t
+    !> Environment state.
+    type(env_state_t), intent(in) :: env_state
+    !> Density for each mode.
+    real(kind=dp), intent(in) :: density
+    !> Scenario
+    type(scenario_t), intent(inout) :: scenario
+    !> Removed (third moment)
+    real(kind=dp), intent(inout) :: removed
+
+    !> Current mode
+    type(aero_mode_t) :: aero_mode
+
+    real(kind=dp) :: N, d_pg, ln_sigma_g
+    real(kind=dp) :: m_0_rate, m_3_rate
+    real(kind=dp) :: M, new_M
+    real(kind=dp) :: new_N, new_d_pg
+    integer :: i_mode
+
+    if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_INVALID) then
+       return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_NONE) then
+       return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_CONSTANT) then
+       return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) then
+       ! loss
+      do i_mode = 1,aero_dist_n_mode(aero_dist)
+          aero_mode = aero_dist%mode(i_mode)
+          N = aero_mode%num_conc
+
+          if (N == 0d0) then
+             cycle
+          end if
+
+       d_pg = aero_mode%char_radius * 2.0d0
+       ln_sigma_g = aero_mode%log10_std_dev_radius / log10(exp(1.0d0))
+
+       ! Integrated deposition rate for 0-th moment (exactly equal to number conc.)
+       m_0_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 0.0d0, density, env_state)
+       new_N = N * exp(m_0_rate * del_t)
+
+       if (new_N < 1d0) then
+          aero_dist%mode(i_mode)%num_conc = 0d0
+          aero_dist%mode(i_mode)%char_radius = 0d0
+          cycle
+       end if
+
+       aero_dist%mode(i_mode)%num_conc = new_N
+
+       ! Integrated deposition rate for 3-rd moment (proportional to volume conc.)
+       m_3_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 3.0d0, density, env_state)
+       M = N * d_pg**3.0d0 * exp((3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0))
+       new_M = M * exp(m_3_rate * del_t)
+       removed = removed + (M - new_M)
+
+       ! New geometric mean diameter
+       new_d_pg = (new_M / new_N * exp(-(3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0)))**(1.0d0/3.0d0)
+            aero_dist%mode(i_mode)%char_radius = new_d_pg / 2.0d0
+      end do
+    end if
+
+  end subroutine scenario_update_aero_modes
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !> Do emissions and background dilution from the environment for a
   !> binned aerosol distribution.
   !!
@@ -372,74 +445,10 @@ contains
     call aero_binned_scale(aero_binned, p)
     call aero_binned_add_scaled(aero_binned, background_binned, 1d0 - p)
 
-    ! binned loss
-    call scenario_binned_loss(scenario, bin_grid, delta_t, aero_data, &
-       env_state, aero_binned)
-
   end subroutine scenario_update_aero_binned
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-<<<<<<< Updated upstream
-=======
-  subroutine scenario_update_aero_modes(aero_dist, del_t, env_state, density, aero_data)
-   !> Aerosol distribution to update.
-   type(aero_dist_t), intent(inout) :: aero_dist
-   !> Timestep.
-   real(kind=dp), intent(in) :: del_t
-   !> Environment state.
-   type(env_state_t), intent(in) :: env_state
-   !> Density for each mode.
-   real(kind=dp), intent(in) :: density
-
-   type(aero_data_t), intent(in) :: aero_data
-
-   !> Current mode
-   type(aero_mode_t) :: aero_mode
-
-   real(kind=dp) :: N, d_pg, ln_sigma_g
-   real(kind=dp) :: m_0_rate, m_3_rate
-   real(kind=dp) :: M, new_M
-   real(kind=dp) :: new_N, new_d_pg
-   integer :: i_mode
-
-   ! loss
-   do i_mode = 1,aero_dist_n_mode(aero_dist)
-      aero_mode = aero_dist%mode(i_mode)
-      N = aero_mode%num_conc
-
-      if (N == 0d0) cycle
-
-      d_pg = aero_mode%char_radius * 2.0d0
-      ln_sigma_g = aero_mode%log10_std_dev_radius / log10(exp(1.0d0))
-
-      ! Integrated deposition rate for 0-th moment (exactly equal to number conc.)
-      m_0_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 0.0d0, density, env_state)
-      new_N = N * exp(m_0_rate * del_t)
-
-      if (new_N < 1d0) then
-        aero_dist%mode(i_mode)%num_conc = 0d0
-        aero_dist%mode(i_mode)%char_radius = 0d0
-        cycle
-      end if
-
-      aero_dist%mode(i_mode)%num_conc = new_N
-
-      ! Integrated deposition rate for 3-rd moment (proportional to volume/mass conc.)
-      m_3_rate = -1.0d0 * scenario_integrated_loss_rate_dry_dep(aero_mode, 3.0d0, density, env_state)
-      M = N * d_pg**3.0d0 * exp((3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0))
-      new_M = M * exp(m_3_rate * del_t)
-
-      ! New geometric mean diameter
-      new_d_pg = (new_M / new_N * exp(-(3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0)))**(1.0d0/3.0d0)
-      aero_dist%mode(i_mode)%char_radius = new_d_pg / 2.0d0
-   end do
-
-  end subroutine scenario_update_aero_modes
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
->>>>>>> Stashed changes
   !> Evaluate a loss rate function.
   real(kind=dp) function scenario_loss_rate(scenario, vol, density, &
        aero_data, env_state)
@@ -585,8 +594,6 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-<<<<<<< Updated upstream
-=======
   !> Compute and return the integrated dry deposition rate for a given
   !> lognormal aerosol mode.
   real(kind=dp) function scenario_integrated_loss_rate_dry_dep(aero_mode, &
@@ -655,11 +662,6 @@ contains
    ! Compute integrated settling velocity
    V_g_hat = V_g * (exp((4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
          knud * exp((2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0))
-!    print *, "V_g_hat: ", V_g_hat
-!    logsigmag2 = ln_sigma_g**2.0d0
-!    Vghat = V_g *  (exp((4.0d0*moment+4.0d0)/2.0d0 * logsigmag2) + 1.246d0 * (2.0d0*gas_mean_free_path/d_pg) * &
-!         exp((2.0d0*moment+1.0d0)/2.0d0 * logsigmag2))
-!    print *, "Vghat: ", Vghat
 
    ! Aerodynamic resistance (assuming neutral stability)
    u_star = 0.4d0 * u_mean / log(z_ref / z_rough)
@@ -670,7 +672,7 @@ contains
         (3.0d0 * const%pi * visc_d * d_pg)
    ! Compute integrated Brownian diffusivity
    D_hat = D * ((exp((-2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
-         Kn * exp((-4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0)))
+         knud * exp((-4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0)))
    ! Schmidt number based on integrated diffusivity
    Sc = visc_k / D_hat
    ! Collection efficiency due to Brownian diffusion
@@ -691,7 +693,6 @@ contains
    R_s = 1.0d0 / (eps_0 * u_star * (E_B + E_IN + E_IM) * R1)
 
    ! Integrated deposition velocity
-   !V_d_hat = V_g_hat + (1.0d0 / (R_a + R_s + R_a * R_s * V_g_hat))
    V_d_hat = V_g_hat / (1.0d0 - exp(-V_g_hat * (R_a + R_s)))
 
    ! Loss rate
@@ -701,7 +702,37 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
->>>>>>> Stashed changes
+  !> Updates a given array to contain the integrated deposition rates for the
+  !> given moment of each aerosol mode in the distribution.
+  subroutine scenario_modal_dry_dep_rates(aero_dist, moment, density, &
+      env_state, rates)
+
+    !> Aerosol distribution.
+    type(aero_dist_t), intent(in) :: aero_dist
+    !> Moment to compute rate for.
+    real(kind=dp), intent(in) :: moment
+    !> Density for the mode.
+    real(kind=dp), intent(in) :: density
+    !> Environment state.
+    type(env_state_t), intent(in) :: env_state
+    !> Rates.
+    real(kind=dp), intent(inout) :: rates(:)
+
+    integer :: i_mode, n_mode
+
+    print *, "size(rates)", size(rates)
+
+    do i_mode = 1,size(rates)
+        rates(i_mode) = scenario_integrated_loss_rate_dry_dep( &
+            aero_dist%mode(i_mode), moment, density, env_state) &
+            * env_state%height
+        print *, rates(i_mode)
+    end do
+
+  end subroutine
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !> Compute and return the max loss rate function for a given volume.
   real(kind=dp) function scenario_loss_rate_max(scenario, vol, aero_data, &
        env_state)
@@ -911,9 +942,9 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  !> Performs loss for a binned aerosol distribution for one time-step.
+  !> Performs loss for a binned aerosol distribution for one time step.
   subroutine scenario_binned_loss(scenario, bin_grid, delta_t, aero_data, &
-       env_state, aero_binned)
+       env_state, aero_binned, removed)
 
     !> Scenario data.
     type(scenario_t), intent(in) :: scenario
@@ -927,37 +958,78 @@ contains
     type(env_state_t), intent(in) :: env_state
     !> Binned aerosol data.
     type(aero_binned_t), intent(inout) :: aero_binned
+    !> Mass removed.
+    real(kind=dp), intent(inout) :: removed
 
-    integer :: i_bin
+    integer :: i_bin, i
     real(kind=dp) :: density, vol, rate, mass_flux, new_vol_conc
     real(kind=dp), allocatable :: old_mass_conc(:)
 
     if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_NONE .or. &
-        scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_INVALID) return
+        scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_INVALID) then
+        return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) then
 
-    density = aero_data%density(1)
+       density = aero_data%density(1)
 
-    do i_bin = 1,bin_grid_size(bin_grid)
-        old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * density
+       do i_bin = 1,bin_grid_size(bin_grid)
+          old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * density
 
-        if (old_mass_conc(1) == 0) cycle
+          ! if (old_mass_conc(1) == 0) then
+          !    cycle
+          ! end if
 
-        vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
-        rate = scenario_loss_rate(scenario, vol, density, aero_data, env_state)
+          vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
+          rate = scenario_loss_rate(scenario, vol, density, aero_data, env_state)
 
-        mass_flux = old_mass_conc(1) * rate * delta_t
+          mass_flux = old_mass_conc(1) * rate * delta_t
 
-        if (mass_flux > old_mass_conc(1)) then
-          new_vol_conc = 0d0
-        else
-          new_vol_conc = (old_mass_conc(1) - mass_flux) / bin_grid%widths(i_bin) / density
-        endif
+          if (mass_flux > old_mass_conc(1)) then
+             mass_flux = old_mass_conc(1)
+             new_vol_conc = 0d0
+          else
+             new_vol_conc = (old_mass_conc(1) - mass_flux) / bin_grid%widths(i_bin) / density
+          endif
 
-        aero_binned%vol_conc(i_bin, :) = new_vol_conc
-        aero_binned%num_conc(i_bin) = new_vol_conc / aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
-    end do
+          removed = removed + mass_flux
+
+          aero_binned%vol_conc(i_bin, :) = new_vol_conc
+          aero_binned%num_conc(i_bin) = new_vol_conc / aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
+       end do
+    else 
+       return
+    end if 
 
   end subroutine scenario_binned_loss
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Returns an array (of size equal to the number of sections containing the
+  !> dry deposition loss rate for each bin in a sectional simulation.
+  subroutine scenario_section_dry_dep_rates(bin_grid, aero_data, env_state, &
+       rates)
+
+    !> Bin grid.
+    type(bin_grid_t), intent(in) :: bin_grid
+    !> Aerosol data.
+    type(aero_data_t), intent(in) :: aero_data
+    !> Environmental state.
+    type(env_state_t), intent(in) :: env_state
+    !> Loss rates for each section/bin.
+    real(kind=dp), intent(inout) :: rates(:)
+
+    integer :: i_bin
+    real(kind=dp) :: density, vol
+      
+    density = aero_data%density(1)
+
+     do i_bin = 1,bin_grid_size(bin_grid)
+          vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
+          rates(i_bin) = scenario_loss_rate_dry_dep(vol, density, aero_data, &
+            env_state) * env_state%height
+     end do
+
+end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

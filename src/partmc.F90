@@ -226,6 +226,7 @@ program partmc
   use pmc_run_part
   use pmc_run_exact
   use pmc_run_sect
+  use pmc_run_modal
   use pmc_spec_file
   use pmc_gas_data
   use pmc_gas_state
@@ -300,6 +301,8 @@ contains
        call partmc_exact(file)
     elseif (trim(run_type) == 'sectional') then
        call partmc_sect(file)
+    elseif (trim(run_type) == 'modal') then
+       call partmc_modal(file)
     else
        call die_msg(719261940, "unknown run_type: " // trim(run_type))
     end if
@@ -1102,8 +1105,6 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-<<<<<<< Updated upstream
-=======
 !> Run a modal code simulation.
 subroutine partmc_modal(file)
 
@@ -1130,6 +1131,8 @@ subroutine partmc_modal(file)
   call spec_file_read_real(file, 'del_t', run_modal_opt%del_t)
   call spec_file_read_real(file, 't_output', run_modal_opt%t_output)
   call spec_file_read_real(file, 't_progress', run_modal_opt%t_progress)
+
+  call spec_file_read_radius_bin_grid(file, bin_grid)
 
   call spec_file_read_string(file, 'gas_data', sub_filename)
   call spec_file_open(sub_filename, sub_file)
@@ -1162,7 +1165,7 @@ subroutine partmc_modal(file)
   call scenario_init_env_state(scenario, env_state, 0d0)
 
   call run_modal(aero_data, aero_dist_init, scenario, &
-      env_state, gas_data, run_modal_opt)
+      env_state, gas_data, bin_grid, run_modal_opt)
 
   call pmc_rand_finalize()
 
@@ -1170,5 +1173,4 @@ end subroutine partmc_modal
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
->>>>>>> Stashed changes
 end program partmc
