@@ -7,8 +7,8 @@ t_output 600                         # output interval (0 disables) (s)
 t_progress 0                         # progress printing interval (0 disables) (s)
 
 n_bin 1000                           # number of bins
-d_min 1e-11                          # minimum diameter (m)
-d_max 2                              # maximum diameter (m)
+d_min 2e-9                           # minimum diameter (m)
+d_max 1e-2                           # maximum diameter (m)
 
 gas_data gas_data.dat                # file containing gas data
 aerosol_data modal_aero_data.dat      # file containing aerosol data
