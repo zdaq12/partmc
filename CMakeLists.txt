@@ -318,7 +318,7 @@ add_executable(numeric_average src/numeric_average.F90)
 add_executable(urban_plume_process
   scenarios/1_urban_plume/urban_plume_process.F90)
 add_executable(urban_plume_process_modal
-  scenarios/1_urban_plume/urban_plume_process_modal.F90)
+  scenarios/1_urban_plume/urban_plume_modal_process.F90)
 target_link_libraries(urban_plume_process partmclib)
 
 ######################################################################
