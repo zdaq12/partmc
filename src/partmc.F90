@@ -301,6 +301,8 @@ contains
        call partmc_exact(file)
     elseif (trim(run_type) == 'sectional') then
        call partmc_sect(file)
+     elseif (trim(run_type) == 'modal') then
+       call partmc_modal(file)
     else
        call die_msg(719261940, "unknown run_type: " // trim(run_type))
     end if
