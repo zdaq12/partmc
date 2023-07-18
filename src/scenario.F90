@@ -1241,6 +1241,20 @@ contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+  !> Input the dry deposition parameterization to NetCDF file.
+  subroutine scenario_input_drydep_param(scenario, ncid)
+
+    !> Scenario data.
+    type(scenario_t), intent(inout) :: scenario
+    !> NetCDF file ID, in data mode.
+    integer, intent(in) :: ncid
+
+    call pmc_nc_read_integer(ncid, scenario%drydep_param, "drydep_param")
+
+  end subroutine scenario_input_drydep_param
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   !> Determines the number of bytes required to pack the given value.
   integer function pmc_mpi_pack_size_scenario(val)
 

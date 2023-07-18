@@ -925,7 +925,7 @@ contains
     end if
 
     if (present(scenario)) then
-      call pmc_nc_read_integer(ncid, scenario%drydep_param, "drydep_param")
+      call scenario_input_drydep_param(scenario, ncid)
     end if
 
 end subroutine input_modal
