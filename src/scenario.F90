@@ -18,6 +18,7 @@ module pmc_scenario
   use pmc_gas_data
   use pmc_chamber
   use pmc_mpi
+  use pmc_netcdf
 #ifdef PMC_USE_MPI
   use mpi
 #endif
@@ -34,6 +35,11 @@ module pmc_scenario
   integer, parameter :: SCENARIO_LOSS_FUNCTION_DRYDEP  = 4
   !> Type code for a loss rate function for chamber experiments.
   integer, parameter :: SCENARIO_LOSS_FUNCTION_CHAMBER  = 5
+
+  !> Type code for Zhang et al., 2001 dry deposition parameterization.
+  integer, parameter :: SCENARIO_DRYDEP_ZHANG   = 0
+  !> Type code for Emeroson et al., 2020 dry deposition parameterization.
+  integer, parameter :: SCENARIO_DRYDEP_EMERSON = 1
 
   !> Parameter to switch between algorithms for particle loss.
   !! A value of 0 will always use the naive algorithm, and
@@ -97,6 +103,8 @@ module pmc_scenario
 
      !> Type of loss rate function.
      integer :: loss_function_type
+     !> Parameterization for dry deposition
+     integer :: drydep_param
      !> Chamber parameters for wall loss and sedimentation.
      type(chamber_t) :: chamber
   end type scenario_t
@@ -402,7 +410,7 @@ contains
        scenario_loss_rate = 1d15*vol
     else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) &
          then
-       scenario_loss_rate = scenario_loss_rate_dry_dep(vol, density, &
+       scenario_loss_rate = scenario_loss_rate_dry_dep(scenario, vol, density, &
             aero_data, env_state)
     else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_CHAMBER) &
          then
@@ -422,9 +430,11 @@ contains
   !> Compute and return the dry deposition rate for a given particle.
   !! All equations used here are written in detail in the file
   !! \c doc/deposition/deposition.tex.
-  real(kind=dp) function scenario_loss_rate_dry_dep(vol, density, aero_data, &
-      env_state)
+  real(kind=dp) function scenario_loss_rate_dry_dep(scenario, vol, density, &
+      aero_data, env_state)
 
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
     !> Particle volume (m^3).
     real(kind=dp), intent(in) :: vol
     !> Particle density (kg m^-3).
@@ -443,22 +453,40 @@ contains
     real(kind=dp) :: knud, cunning
     real(kind=dp) :: grav
     real(kind=dp) :: R_s, R_a
-    real(kind=dp) :: alpha, beta, gamma, A, eps_0
+    real(kind=dp) :: alpha, beta, gamma, A, eps_0, nu
     real(kind=dp) :: diff_p
     real(kind=dp) :: von_karman
     real(kind=dp) :: St, Sc, u_star
     real(kind=dp) :: E_B, E_IM, E_IN, R1
     real(kind=dp) :: u_mean, z_ref, z_rough
+    real(kind=dp) :: C_B, C_IN, C_IM
 
     ! User set variables
+    ! Hardcoded meteorological variables and
+    ! parameterization-dependent LUC values.
+    z_ref = 20.0d0 ! Reference height
     u_mean = 5.0d0 ! Mean wind speed at reference height
-    z_ref =  20.0d0 ! Reference height
-    ! Setting for LUC = 7, SC = 1 - See Table 3
-    z_rough = .1d0 ! According to land category
-    A = 2.0d0 / 1000.0d0 ! Dependent on land type
-    alpha = 1.2d0 ! From table
-    beta = 2.0d0 ! From text
-    gamma = .54d0 ! From table
+    ! LUC 7 (crops, mixed farming) from Zhang et al., 2001
+    z_rough = .1d0
+    A = 2.0d0 / 1000.0d0
+    alpha = 1.2d0
+    eps_0 = 3.0d0
+
+    if (scenario%drydep_param == SCENARIO_DRYDEP_EMERSON) then
+       gamma = 2.0d0 / 3.0d0 ! Not dependent on LUC
+       C_B = .2d0
+       C_IN = 2.5d0
+       C_IM = .4d0
+       nu = .8d0
+       beta = 1.7d0
+    else if (scenario%drydep_param == SCENARIO_DRYDEP_ZHANG) then
+       gamma = .54d0 ! LUC-dependent for default param.
+       C_B = 1.0d0
+       C_IN = .5d0
+       C_IM = 1.0d0
+       nu = 2.0d0
+       beta = 2.0d0
+    end if
 
     ! particle diameter
     d_p = aero_data_vol2diam(aero_data, vol)
@@ -493,15 +521,15 @@ contains
     diff_p = (const%boltzmann * env_state%temp * cunning) / &
          (3.d0 * const%pi * visc_d * d_p)
     Sc = visc_k / diff_p
-    E_B = Sc**(-gamma)
+    E_B = C_B * Sc**(-gamma)
 
     ! Interception efficiency
     ! Characteristic radius of large collectors
-    E_IN = .5d0 * (d_p / A)**2.0d0
+    E_IN = C_IN * (d_p / A)**nu
 
     ! Impaction efficiency
     St = (V_s * u_star) / (grav * A)
-    E_IM = (St / (alpha + St))**beta
+    E_IM = C_IM * (St / (alpha + St))**beta
 
     ! Rebound correction
     R1 = exp(-St**.5d0)
@@ -792,9 +820,11 @@ contains
 
   !> Updates an array (of size equal to the number of section) containing the
   !> dry deposition loss rate for each bin in a sectional simulation.
-  subroutine scenario_section_dry_dep_rates(bin_grid, aero_data, env_state, &
-       rates)
+  subroutine scenario_section_dry_dep_rates(scenario, bin_grid, aero_data, &
+       env_state, rates)
 
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
     !> Bin grid.
     type(bin_grid_t), intent(in) :: bin_grid
     !> Aerosol data.
@@ -811,8 +841,8 @@ contains
 
     do i_bin = 1,bin_grid_size(bin_grid)
        vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
-       rates(i_bin) = scenario_loss_rate_dry_dep(vol, density, aero_data, &
-          env_state) * env_state%height
+       rates(i_bin) = scenario_loss_rate_dry_dep(scenario, vol, density, &
+          aero_data, env_state) * env_state%height
     end do
 
 end subroutine
@@ -957,6 +987,15 @@ end subroutine
        scenario%loss_function_type = SCENARIO_LOSS_FUNCTION_VOLUME
     else if (trim(function_name) == 'drydep') then
        scenario%loss_function_type = SCENARIO_LOSS_FUNCTION_DRYDEP
+       call spec_file_read_string(file, "drydep_param", function_name)
+       if (trim(function_name) == 'Zhang_2001') then
+          scenario%drydep_param = SCENARIO_DRYDEP_ZHANG
+       else if (trim(function_name) == 'Emerson_2020') then
+          scenario%drydep_param = SCENARIO_DRYDEP_EMERSON
+       else
+          call die_msg(204516114, "Unknown dry deposition parameterization: " &
+            // trim(function_name))
+       end if
     else if (trim(function_name) == 'chamber') then
        scenario%loss_function_type = SCENARIO_LOSS_FUNCTION_CHAMBER
        call spec_file_read_chamber(file, scenario%chamber)
@@ -1067,6 +1106,35 @@ end subroutine
   !!   - \ref spec_file_format --- the input file text format
   !!   - \ref input_format_scenario --- the environment data
   !!     containing the mixing layer height profile
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Output the dry deposition parameterization to NetCDF file.
+  subroutine scenario_output_drydep_param(scenario, ncid)
+
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
+    !> NetCDF file ID, in data mode.
+    integer, intent(in) :: ncid
+
+    call pmc_nc_write_integer(ncid, scenario%drydep_param, &
+         "drydep_param")
+
+  end subroutine scenario_output_drydep_param
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Input the dry deposition parameterization to NetCDF file.
+  subroutine scenario_input_drydep_param(scenario, ncid)
+
+    !> Scenario data.
+    type(scenario_t), intent(inout) :: scenario
+    !> NetCDF file ID, in data mode.
+    integer, intent(in) :: ncid
+
+    call pmc_nc_read_integer(ncid, scenario%drydep_param, "drydep_param")
+
+  end subroutine scenario_input_drydep_param
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

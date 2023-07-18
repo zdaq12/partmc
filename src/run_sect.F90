@@ -152,7 +152,7 @@ contains
          last_output_time, do_output)
     if (do_output) then
        call output_sectional(run_sect_opt%prefix, bin_grid, aero_data, &
-            aero_binned, gas_data, gas_state, env_state, i_summary, &
+            aero_binned, gas_data, gas_state, env_state, scenario, i_summary, &
             time, run_sect_opt%t_output, run_sect_opt%uuid)
     end if
 
@@ -194,7 +194,7 @@ contains
        if (do_output) then
           i_summary = i_summary + 1
           call output_sectional(run_sect_opt%prefix, bin_grid, aero_data, &
-               aero_binned, gas_data, gas_state, env_state, i_summary, &
+               aero_binned, gas_data, gas_state, env_state, scenario, i_summary, &
                time, run_sect_opt%t_output, run_sect_opt%uuid)
        end if
 
