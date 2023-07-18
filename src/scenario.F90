@@ -18,6 +18,7 @@ module pmc_scenario
   use pmc_gas_data
   use pmc_chamber
   use pmc_mpi
+  use pmc_netcdf
 #ifdef PMC_USE_MPI
   use mpi
 #endif
@@ -1222,6 +1223,21 @@ contains
   !!   - \ref spec_file_format --- the input file text format
   !!   - \ref input_format_scenario --- the environment data
   !!     containing the mixing layer height profile
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Output the dry deposition parameterization to NetCDF file.
+  subroutine scenario_output_drydep_param(scenario, ncid)
+
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
+    !> NetCDF file ID, in data mode.
+    integer, intent(in) :: ncid
+
+    call pmc_nc_write_integer(ncid, scenario%drydep_param, &
+         "drydep_param")
+
+  end subroutine scenario_output_drydep_param
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

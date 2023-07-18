@@ -20,6 +20,7 @@ program process
   type(env_state_t) :: env_state
   type(gas_data_t) :: gas_data
   type(gas_state_t) :: gas_state
+  type(scenario_t) :: scenario
   integer :: ncid, index, i_mode, i_index
   real(kind=dp) :: time, del_t, tot_num_conc, density, tot_mass_conc
   character(len=PMC_UUID_LEN) :: uuid
@@ -39,7 +40,7 @@ program process
     write(*,*) "Processing " // trim(in_filename)
     call input_modal(in_filename, index, time, del_t, uuid, aero_dist=aero_dist, &
         aero_binned=aero_binned, aero_data=aero_data, env_state=env_state, &
-        gas_data=gas_data, gas_state=gas_state, bin_grid=bin_grid)
+        gas_data=gas_data, gas_state=gas_state, bin_grid=bin_grid, scenario=scenario)
 
     times(i_index) = time
 
@@ -53,10 +54,10 @@ program process
     if (.not. allocated(rates_0)) allocate(rates_0(aero_dist_n_mode(aero_dist)))
     if (.not. allocated(rates_3)) allocate(rates_3(aero_dist_n_mode(aero_dist)))
 
-    call scenario_modal_dry_dep_rates(aero_dist, 0.0d0, density, &
+    call scenario_modal_dry_dep_rates(scenario, aero_dist, 0.0d0, density, &
       env_state, rates_0)
     call stats_1d_add(stats_rates_0, rates_0)
-    call scenario_modal_dry_dep_rates(aero_dist, 3.0d0, density, &
+    call scenario_modal_dry_dep_rates(scenario, aero_dist, 3.0d0, density, &
       env_state, rates_3)
     call stats_1d_add(stats_rates_3, rates_3)
 

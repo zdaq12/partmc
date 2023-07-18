@@ -107,7 +107,7 @@ contains
         call aero_binned_add_aero_dist(aero_binned, bin_grid, aero_data, &
              aero_dist)
         call output_modal(run_modal_opt%prefix, aero_binned, aero_dist, aero_data, &
-             env_state, gas_data, gas_state, bin_grid, i_summary, time, &
+             env_state, gas_data, gas_state, bin_grid, scenario, i_summary, time, &
              run_modal_opt%del_t, run_modal_opt%uuid)
         call aero_binned_zero(aero_binned)
       end if
@@ -134,7 +134,7 @@ contains
           call aero_binned_add_aero_dist(aero_binned, bin_grid, aero_data, &
                aero_dist)
           call output_modal(run_modal_opt%prefix, aero_binned, aero_dist, aero_data, &
-               env_state, gas_data, gas_state, bin_grid, i_summary, time, &
+               env_state, gas_data, gas_state, bin_grid, scenario,i_summary, time, &
                run_modal_opt%del_t, run_modal_opt%uuid)
           call aero_binned_zero(aero_binned)
         end if

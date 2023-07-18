@@ -77,6 +77,7 @@ module pmc_output
   use pmc_util
   use pmc_gas_data
   use pmc_mpi
+  use pmc_scenario
 #ifdef PMC_USE_MPI
   use mpi
 #endif
@@ -788,7 +789,7 @@ contains
   !> Need to account for aero_dist (all aero_mode_t within), aero_data, env_state, gas_data
   !> index, time, del_t, uuid
   subroutine output_modal(prefix, aero_binned, aero_dist, aero_data, env_state, gas_data, &
-       gas_state, bin_grid, index, time, del_t, uuid)
+       gas_state, bin_grid, scenario, index, time, del_t, uuid)
 
     !> Prefix of filename to write.
     character(len=*), intent(in) :: prefix
@@ -806,6 +807,8 @@ contains
     type(gas_state_t), intent(in) :: gas_state
     !> Bin grid.
     type(bin_grid_t), intent(in) :: bin_grid
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
     !> Filename index.
     integer, intent(in) :: index
     !> Current time (s).
@@ -834,6 +837,10 @@ contains
     call aero_data_output_netcdf(aero_data, ncid)
     call bin_grid_output_netcdf(bin_grid, ncid, "diam", unit="m")
 
+    if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) then
+       call scenario_output_drydep_param(scenario, ncid)
+    end if
+
     call pmc_nc_check(nf90_close(ncid))
 
   end subroutine output_modal
@@ -842,7 +849,8 @@ contains
 
   !> Input modal data.
   subroutine input_modal(filename, index, time, del_t, uuid, aero_dist, &
-       aero_binned, aero_data, env_state, gas_data, gas_state, bin_grid)
+       aero_binned, aero_data, env_state, gas_data, gas_state, bin_grid, &
+       scenario)
 
     !> Filename to read.
     character(len=*), intent(in) :: filename
@@ -868,6 +876,8 @@ contains
     type(gas_state_t), optional, intent(inout) :: gas_state
     !> Bin grid.
     type(bin_grid_t), optional, intent(inout) :: bin_grid
+    !> Scenario data.
+    type(scenario_t), optional, intent(inout) :: scenario
 
     integer :: ncid
 
@@ -912,6 +922,10 @@ contains
     else
       call assert_msg(214545116, present(aero_binned) .eqv. .false., &
            "cannot input aero_binned without bin_grid")
+    end if
+
+    if (present(scenario)) then
+      call pmc_nc_read_integer(ncid, scenario%drydep_param, "drydep_param")
     end if
 
 end subroutine input_modal
