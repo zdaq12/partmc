@@ -1,14 +1,14 @@
 run_type sectional                   # sectional (binned) run
 output_prefix out/sect_init_sig_2_5
 
-t_max 43200                            # total simulation time (s)
+t_max 3600                           # total simulation time (s)
 del_t 60                             # timestep (s)
-t_output 3600                          # output interval (0 disables) (s)
+t_output 600                         # output interval (0 disables) (s)
 t_progress 0                         # progress printing interval (0 disables) (s)
 
 n_bin 1000
-d_min 0.5e-9                         # minimum diameter (m)
-d_max 0.1                            # maximum diameter (m)
+d_min 2e-9                           # minimum diameter (m)
+d_max 1e-2                           # maximum diameter (m)
 
 gas_data gas_data.dat                # file containing gas data
 aerosol_data sect_aero_data.dat      # file containing aerosol data
