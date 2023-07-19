@@ -1,12 +1,12 @@
 run_type sectional                   # sectional (binned) run
-output_prefix out/sect_init_sig_2_5
+output_prefix out/sect_urban_plume   # prefix of output files
 
 t_max 3600                           # total simulation time (s)
 del_t 60                             # timestep (s)
 t_output 600                         # output interval (0 disables) (s)
 t_progress 0                         # progress printing interval (0 disables) (s)
 
-n_bin 1000
+n_bin 1000                           # number of bins
 d_min 2e-9                           # minimum diameter (m)
 d_max 1e-2                           # maximum diameter (m)
 
