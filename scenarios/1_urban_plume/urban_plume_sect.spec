@@ -1,5 +1,5 @@
 run_type sectional                   # sectional (binned) run
-output_prefix out/sect_urban_plume   # prefix of output files
+output_prefix out/sect_urban_plume_Zhang   # prefix of output files
 
 t_max 3600                           # total simulation time (s)
 del_t 60                             # timestep (s)
@@ -23,7 +23,7 @@ gas_background gas_back.dat          # background gas concentrations file
 aero_emissions aero_emit.dat         # aerosol emissions file
 aero_background aero_back.dat        # aerosol background file
 loss_function drydep                 # loss function specification
-drydep_param Zhang_2001              # dry deposition parameterization (Zhang_2001 or Emerson_2020)
+drydep_param Zhang_2001            # dry deposition parameterization (Zhang_2001 or Emerson_2020)
 
 rel_humidity 0.95                    # initial relative humidity (1)
 latitude 0                           # latitude (degrees, -90 to 90)

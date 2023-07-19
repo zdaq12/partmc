@@ -10,7 +10,7 @@ program process
   use pmc_aero_binned
 
   character(len=PMC_MAX_FILENAME_LEN), parameter :: prefix &
-= "out/sect_urban_plume"
+= "out/sect_urban_plume_Zhang"
 
   character(len=PMC_MAX_FILENAME_LEN) :: in_filename, out_filename
   type(bin_grid_t) :: bin_grid
