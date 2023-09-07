@@ -619,14 +619,14 @@ contains
     type(env_state_t), intent(in) :: env_state
 
     real(kind=dp) :: V_d_hat, V_g_hat
-    real(kind=dp) :: V_g
+    real(kind=dp) :: V_g_bar
     real(kind=dp) :: d_pg, ln_sigma_g
     real(kind=dp) :: density_air
     real(kind=dp) :: visc_d, visc_k
     real(kind=dp) :: gas_speed, gas_mean_free_path
-    real(kind=dp) :: knud, cunning
+    real(kind=dp) :: knud
     real(kind=dp) :: alpha, beta, gamma, A, eps_0, nu
-    real(kind=dp) :: D, D_hat
+    real(kind=dp) :: D_bar, D_hat
     real(kind=dp) :: St, Sc
     real(kind=dp) :: u_mean, u_star, z_ref, z_rough
     real(kind=dp) :: R_a, R_s
@@ -679,13 +679,11 @@ contains
     gas_mean_free_path = (2.0d0 * visc_d) / (density_air * gas_speed)
     ! Knudsen number
     knud = (2.0d0 * gas_mean_free_path) / d_pg
-    ! Cunningham slip correction factor
-    cunning = 1.0d0 + knud * (1.257d0 + 0.4d0 * exp(-1.1d0 / knud))
     ! Settling velcoity
-    V_g = (density * d_pg**2.0d0 * const%std_grav * cunning) / (18.0d0 * visc_d)
+    V_g_bar = (density * d_pg**2.0d0 * const%std_grav) / (18.0d0 * visc_d)
 
     ! Compute integrated settling velocity
-    V_g_hat = V_g * (exp((4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
+    V_g_hat = V_g_bar * (exp((4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
           knud * exp((2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0))
 
     ! Aerodynamic resistance (assuming neutral stability)
@@ -693,10 +691,10 @@ contains
     R_a = (1.0d0 / (0.4d0 * u_star)) * log(z_ref / z_rough)
 
     ! Brownian diffusivity
-    D = (const%boltzmann * env_state%temp * cunning) / &
+    D_bar = (const%boltzmann * env_state%temp) / &
          (3.0d0 * const%pi * visc_d * d_pg)
     ! Compute integrated Brownian diffusivity
-    D_hat = D * ((exp((-2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
+    D_hat = D_bar * ((exp((-2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
           knud * exp((-4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0)))
     ! Schmidt number based on integrated diffusivity
     Sc = visc_k / D_hat
