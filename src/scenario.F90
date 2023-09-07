@@ -638,9 +638,9 @@ contains
     z_ref = 20.0d0 ! Reference height
     u_mean = 5.0d0 ! Mean wind speed at reference height
     ! LUC 7 (crops, mixed farming) from Zhang et al., 2001
-    z_rough = .1d0
-    A = 2.0d0 / 1000.0d0
-    alpha = 1.2d0
+    z_rough = 1.05d0
+    A = 5.0d0 / 1000.0d0
+    alpha = .8d0
     eps_0 = 3.0d0
 
     if (scenario%drydep_param == SCENARIO_DRYDEP_EMERSON) then
@@ -651,7 +651,7 @@ contains
        nu = .8d0
        beta = 1.7d0
     else if (scenario%drydep_param == SCENARIO_DRYDEP_ZHANG) then
-       gamma = .54d0 ! LUC-dependent for default param.
+       gamma = .56d0 ! LUC-dependent for Zhang.
        C_B = 1.0d0
        C_IN = .5d0
        C_IM = 1.0d0
@@ -681,7 +681,6 @@ contains
     knud = (2.0d0 * gas_mean_free_path) / d_pg
     ! Settling velcoity
     V_g_bar = (density * d_pg**2.0d0 * const%std_grav) / (18.0d0 * visc_d)
-
     ! Compute integrated settling velocity
     V_g_hat = V_g_bar * (exp((4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
           knud * exp((2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0))
@@ -704,7 +703,7 @@ contains
     ! Collection efficiency due to interception
     E_IN = C_IN * (d_pg / A)**nu
 
-    ! Stokes number based on integrated settling velcity
+    ! Stokes number based on integrated settling velocity
     St = (V_g_hat * u_star) / (const%std_grav * A)
     ! Collection efficiency due to impaction
     E_IM = C_IM * (St / (alpha + St))**beta
