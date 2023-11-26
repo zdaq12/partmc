@@ -449,7 +449,7 @@ contains
 
        ! New geometric mean diameter
        new_d_pg = (new_M / new_N * exp(-(3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0)))**(1.0d0/3.0d0)
-            aero_dist%mode(i_mode)%char_radius = new_d_pg / 2.0d0
+       aero_dist%mode(i_mode)%char_radius = new_d_pg / 2.0d0
       end do
     end if
 
