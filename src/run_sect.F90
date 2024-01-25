@@ -161,8 +161,6 @@ contains
       mass_init = mass_init + old_mass_conc(1)
     end do
 
-    print *, "Initial mass: ", mass_init
-
     ! main time-stepping loop
     num_t = nint(run_sect_opt%t_max / run_sect_opt%del_t)
     do i_time = 1, num_t
@@ -206,15 +204,6 @@ contains
           write(*,'(i6,f8.1)') i_time, time
        end if
     end do
-
-    do i_bin = 1,bin_grid_size(bin_grid)
-      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
-      mass_final = mass_final + old_mass_conc(1)
-    end do
-
-    print *, "Final mass: ", mass_final
-    print *, "Removed: ", removed
-    print *, "(Final mass) + (Removed) = ", mass_final + removed
 
   end subroutine run_sect
 
