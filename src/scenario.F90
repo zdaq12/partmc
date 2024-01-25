@@ -467,6 +467,8 @@ contains
     z_ref = 20.0d0 ! Reference height
     u_mean = 5.0d0 ! Mean wind speed at reference height
     ! LUC 7 (crops, mixed farming) from Zhang et al., 2001
+    ! should be noted that LUC parameters are consistent
+    ! across the two supported parameterizations
     z_rough = .1d0
     A = 2.0d0 / 1000.0d0
     alpha = 1.2d0
