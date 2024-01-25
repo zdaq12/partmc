@@ -183,7 +183,7 @@ contains
        call scenario_update_aero_binned(scenario, run_sect_opt%del_t, &
             env_state, old_env_state, bin_grid, aero_data, aero_binned)
        call scenario_binned_loss(scenario, bin_grid, run_sect_opt%del_t, &
-            aero_data, env_state, aero_binned, removed)
+            aero_data, env_state, aero_binned)
 
        ! print output
        call check_event(time, run_sect_opt%del_t, run_sect_opt%t_output, &

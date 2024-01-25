@@ -760,7 +760,7 @@ contains
 
   !> Performs loss for a binned aerosol distribution for one time step.
   subroutine scenario_binned_loss(scenario, bin_grid, delta_t, aero_data, &
-       env_state, aero_binned, removed)
+       env_state, aero_binned)
 
     !> Scenario data.
     type(scenario_t), intent(in) :: scenario
@@ -774,8 +774,6 @@ contains
     type(env_state_t), intent(in) :: env_state
     !> Binned aerosol data.
     type(aero_binned_t), intent(inout) :: aero_binned
-    !> Mass removed.
-    real(kind=dp), intent(inout) :: removed
 
     integer :: i_bin, i
     real(kind=dp) :: density, vol, rate, mass_flux, new_vol_conc
@@ -806,8 +804,6 @@ contains
           else
              new_vol_conc = (old_mass_conc(1) - mass_flux) / bin_grid%widths(i_bin) / density
           endif
-
-          removed = removed + mass_flux
 
           aero_binned%vol_conc(i_bin, :) = new_vol_conc
           aero_binned%num_conc(i_bin) = new_vol_conc / aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
