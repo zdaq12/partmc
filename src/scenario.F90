@@ -541,7 +541,7 @@ contains
     R_s = 1.0d0 / (eps_0 * u_star * (E_B + E_IN + E_IM) * R1)
 
     ! Dry deposition
-    V_d = V_s + (1.0d0 / (R_a + R_s + R_a * R_s * V_s))
+    V_d = V_s + (1.0d0 / (R_a + R_s ))
 
     ! The loss rate
     scenario_loss_rate_dry_dep = V_d / env_state%height
