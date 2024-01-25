@@ -516,7 +516,7 @@ contains
     V_s = (density * d_p**2.0d0 * grav * cunning) / (18.0d0 * visc_d)
 
     ! Aerodynamic resistance
-    ! For neutral stability
+    ! For neutral stability (stability function assumed 0)
     u_star = .4d0 * u_mean / log(z_ref / z_rough)
     R_a = (1.0d0 / (.4d0 * u_star)) * log(z_ref / z_rough)
     ! Brownian diffusion efficiency
