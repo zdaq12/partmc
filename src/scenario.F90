@@ -1130,7 +1130,7 @@ end subroutine
   end subroutine scenario_input_drydep_param
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+  ! TODO: update MPI functions
   !> Determines the number of bytes required to pack the given value.
   integer function pmc_mpi_pack_size_scenario(val)
 
