@@ -907,6 +907,8 @@ end subroutine
     !!      for constant loss rate, \c volume for particle loss proportional
     !!      to particle volume, \c drydep for particle loss proportional
     !!      to dry deposition velocity, or \c chamber for a chamber model.
+    !!      If \c loss_function is \c drydep, then the drydep parameter
+    !!      must also be provided.
     !!      If \c loss_function is \c chamber, then the following
     !!      parameters must also be provided:
     !!      - \subpage input_format_chamber
