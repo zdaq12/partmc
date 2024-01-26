@@ -784,9 +784,9 @@ contains
        do i_bin = 1,bin_grid_size(bin_grid)
           old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * density
 
-          ! if (old_mass_conc(1) == 0) then
-          !    cycle
-          ! end if
+          if (old_mass_conc(1) == 0) then
+             cycle
+          end if
 
           vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
           rate = scenario_loss_rate(scenario, vol, density, aero_data, env_state)
