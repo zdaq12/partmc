@@ -779,11 +779,6 @@ contains
     real(kind=dp) :: density, vol, rate, mass_flux, new_vol_conc
     real(kind=dp), allocatable :: old_mass_conc(:)
 
-    if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_NONE .or. &
-        scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_INVALID) then
-        return
-    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) then
-
        density = aero_data%density(1)
 
        do i_bin = 1,bin_grid_size(bin_grid)
@@ -808,9 +803,6 @@ contains
           aero_binned%vol_conc(i_bin, :) = new_vol_conc
           aero_binned%num_conc(i_bin) = new_vol_conc / aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
        end do
-    else
-       return
-    end if
 
   end subroutine scenario_binned_loss
 
