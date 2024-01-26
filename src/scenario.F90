@@ -822,6 +822,7 @@ contains
     !> Environmental state.
     type(env_state_t), intent(in) :: env_state
     !> Loss rates for each section/bin.
+    !> TODO: check why I made this inout
     real(kind=dp), intent(inout) :: rates(:)
 
     integer :: i_bin
