@@ -50,7 +50,8 @@ module pmc_scenario
      !> Mean wind speed at reference height
      real(kind=dp) :: u_mean = 5.0d0
      !> Roughness length (land-use category dependent)
-     real(kind=dp) :: z_rough = 0.8d0 ! crops, mixed farming (LUC 7 from Zhang et al., 2001)
+     ! crops, mixed farming (LUC 7 from Zhang et al., 2001)
+     real(kind=dp) :: z_rough = 0.8d0
      !> Characteristic radius of collectors (land-use category dependent)
      real(kind=dp) :: A = 2.0d0 / 1000.0d0
      !> Impaction parameter
@@ -430,6 +431,7 @@ contains
   !> Update the modal aerosol distribution to account for particle loss.
   subroutine scenario_update_aero_modes(aero_dist, del_t, env_state, &
        density, scenario)
+       density, scenario)
 
     !> Aerosol distribution.
     type(aero_dist_t), intent(inout) :: aero_dist
@@ -452,35 +454,39 @@ contains
        return
     else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_NONE) then
        return
-    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_CONSTANT) then
+    else if (scenario%loss_function_type == &
+         SCENARIO_LOSS_FUNCTION_CONSTANT) then
        return
     else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) then
-      do i_mode = 1,aero_dist_n_mode(aero_dist)
-         N = aero_dist%mode(i_mode)%num_conc
+       do i_mode = 1,aero_dist_n_mode(aero_dist)
+          N = aero_dist%mode(i_mode)%num_conc
 
-         if (N == 0d0) cycle
+          if (N == 0d0) cycle
 
-         d_pg = aero_dist%mode(i_mode)%char_radius * 2.0d0
-         ln_sigma_g = aero_dist%mode(i_mode)%log10_std_dev_radius / log10(exp(1.0d0))
+          d_pg = aero_dist%mode(i_mode)%char_radius * 2.0d0
+          ln_sigma_g = aero_dist%mode(i_mode)%log10_std_dev_radius &
+               / log10(exp(1.0d0))
 
-         ! Integrated deposition rate for the 0-th moment (num. conc.)
-         m_0_rate = -1.0d0 * scenario_integrated_loss_rate_drydep(scenario, &
-                             aero_dist%mode(i_mode), 0.0d0, density, env_state)
-         new_N = N * exp(m_0_rate * del_t)
+          ! Integrated deposition rate for the 0-th moment (num. conc.)
+          m_0_rate = -1.0d0 * scenario_integrated_loss_rate_drydep(scenario, &
+               aero_dist%mode(i_mode), 0.0d0, density, env_state)
+          new_N = N * exp(m_0_rate * del_t)
 
-         aero_dist%mode(i_mode)%num_conc = new_N
+          aero_dist%mode(i_mode)%num_conc = new_N
 
-         ! Integrated deposition rate for the 3-rd moment (proportional to volume conc.)
-         m_3_rate = -1.0d0 * scenario_integrated_loss_rate_drydep(scenario, &
-                             aero_dist%mode(i_mode), 3.0d0, density, env_state)
-         M = N * d_pg**3.0d0 * exp((3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0))
-         new_M = M * exp(m_3_rate * del_t)
+          ! Integrated deposition rate for the 3-rd moment
+          ! (proportional to volume conc.)
+          m_3_rate = -1.0d0 * scenario_integrated_loss_rate_drydep(scenario, &
+               aero_dist%mode(i_mode), 3.0d0, density, env_state)
+          M = N * d_pg**3.0d0 * exp((3.0d0**2.0d0) / 2.0d0 &
+               * (ln_sigma_g**2.0d0))
+          new_M = M * exp(m_3_rate * del_t)
 
-         ! New geometric mean diameter
-         new_d_pg = (new_M / new_N &
-                    * exp(-(3.0d0**2.0d0)/2.0d0 * (ln_sigma_g**2.0d0)))**(1.0d0/3.0d0)
-         aero_dist%mode(i_mode)%char_radius = new_d_pg / 2.0d0
-      end do
+          ! New geometric mean diameter
+          new_d_pg = (new_M / new_N * exp(-(3.0d0**2.0d0) / 2.0d0 &
+               * (ln_sigma_g**2.0d0)))**(1.0d0/3.0d0)
+          aero_dist%mode(i_mode)%char_radius = new_d_pg / 2.0d0
+       end do
     end if
 
   end subroutine scenario_update_aero_modes
@@ -535,7 +541,7 @@ contains
   !! All equations used here are written in detail in the file
   !! \c doc/deposition/deposition.tex.
   real(kind=dp) function scenario_loss_rate_drydep(vol, density, aero_data, &
-      env_state, scenario)
+       env_state, scenario)
 
     !> Particle volume (m^3).
     real(kind=dp), intent(in) :: vol
@@ -576,9 +582,8 @@ contains
     ! kinematic viscosity
     visc_k = visc_d / density_air
     ! gas speed
-    gas_speed = &
-         sqrt((8.0d0 * const%boltzmann * env_state%temp * const%avagadro) / &
-         (const%pi * const%air_molec_weight))
+    gas_speed = sqrt((8.0d0 * const%boltzmann * env_state%temp &
+         * const%avagadro) / (const%pi * const%air_molec_weight))
     ! gas free path
     gas_mean_free_path = (2.0d0 * visc_d) / (density_air * gas_speed)
     ! knudson number
@@ -592,11 +597,13 @@ contains
 
     ! Aerodynamic resistance
     ! For neutral stability
-    u_star = .4d0 * drydep_params%u_mean / log(drydep_params%z_ref / drydep_params%z_rough)
-    R_a = (1.0d0 / (.4d0 * u_star)) * log(drydep_params%z_ref / drydep_params%z_rough)
+    u_star = .4d0 * drydep_params%u_mean &
+         / log(drydep_params%z_ref / drydep_params%z_rough)
+    R_a = (1.0d0 / (.4d0 * u_star)) &
+         * log(drydep_params%z_ref / drydep_params%z_rough)
     ! Brownian diffusion efficiency
-    diff_p = (const%boltzmann * env_state%temp * cunning) / &
-         (3.d0 * const%pi * visc_d * d_p)
+    diff_p = (const%boltzmann * env_state%temp * cunning) &
+         / (3.d0 * const%pi * visc_d * d_p)
     Sc = visc_k / diff_p
     E_B = drydep_params%C_B * Sc**(-drydep_params%gamma)
 
@@ -606,7 +613,8 @@ contains
 
     ! Impaction efficiency
     St = (V_s * u_star) / (grav * drydep_params%A)
-    E_IM = drydep_params%C_IM * (St / (drydep_params%alpha + St))**drydep_params%beta
+    E_IM = drydep_params%C_IM * (St &
+         / (drydep_params%alpha + St))**drydep_params%beta
 
     ! Rebound correction
     R1 = exp(-St**.5d0)
@@ -627,7 +635,7 @@ contains
   !> Compute and return the integrated dry deposition rate for a given
   !> lognormal aerosol mode (modal approximation).
   real(kind=dp) function scenario_integrated_loss_rate_drydep(scenario, &
-      aero_mode, moment, density, env_state)
+       aero_mode, moment, density, env_state)
 
     !> Scenario data.
     type(scenario_t), intent(in) :: scenario
@@ -659,6 +667,9 @@ contains
      scenario_integrated_loss_rate_drydep = &
           scenario_integrated_loss_rate_drydep_quadpack( &
           scenario, aero_mode, moment, density, env_state)
+     scenario_integrated_loss_rate_drydep = &
+         scenario_integrated_loss_rate_drydep_quadpack( &
+            scenario, aero_mode, moment, density, env_state)
      return
 #endif
 
@@ -671,14 +682,15 @@ contains
     ! density of air
     density_air = (const%air_molec_weight * env_state%pressure) &
           / (const%univ_gas_const * env_state%temp)
+         / (const%univ_gas_const * env_state%temp)
     ! dynamic viscosity
     visc_d = 1.8325d-5 * (416.16 / (env_state%temp + 120.0d0)) &
-           * (env_state%temp / 296.16)**1.5d0
+         * (env_state%temp / 296.16)**1.5d0
     ! kinematic viscosity
     visc_k = visc_d / density_air
     ! gas speed
-    gas_speed = sqrt((8.0d0 * const%boltzmann * env_state%temp * const%avagadro) / &
-                     (const%pi * const%air_molec_weight))
+    gas_speed = sqrt((8.0d0 * const%boltzmann * env_state%temp &
+         * const%avagadro) / (const%pi * const%air_molec_weight))
     ! gas mean free path
     gas_mean_free_path = (2.0d0 * visc_d) / (density_air * gas_speed)
     ! Knudsen number
@@ -686,21 +698,25 @@ contains
     ! Settling velocity
     V_g_bar = (density * d_pg**2.0d0 * const%std_grav) / (18.0d0 * visc_d)
     ! Compute integrated settling velocity
-    V_g_hat = V_g_bar * (exp((4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
-                 knud * exp((2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0))
+    V_g_hat = V_g_bar &
+         * (exp((4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0) &
+         + 1.246d0 * knud &
+         * exp((2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0))
 
     ! Aerodynamic resistance (assuming neutral stability)
     u_star = 0.4d0 * drydep_params%u_mean / log(drydep_params%z_ref &
          / drydep_params%z_rough)
-    R_a = (1.0d0 / (0.4d0 * u_star)) * log(drydep_params%z_ref &
-         / drydep_params%z_rough)
+    R_a = (1.0d0 / (0.4d0 * u_star)) &
+         * log(drydep_params%z_ref / drydep_params%z_rough)
 
     ! Brownian diffusivity
     D_bar = (const%boltzmann * env_state%temp) &
-            / (3.0d0 * const%pi * visc_d * d_pg)
+         / (3.0d0 * const%pi * visc_d * d_pg)
     ! Compute integrated Brownian diffusivity
-    D_hat = D_bar * ((exp((-2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0) + 1.246d0 * &
-             knud * exp((-4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0)))
+    D_hat = D_bar &
+         * ((exp((-2.0d0 * moment + 1.0d0) / 2.0d0 * ln_sigma_g**2.0d0) &
+         + 1.246d0 * knud &
+         * exp((-4.0d0 * moment + 4.0d0) / 2.0d0 * ln_sigma_g**2.0d0)))
     ! Schmidt number based on integrated diffusivity
     Sc = visc_k / D_hat
     ! Collection efficiency due to Brownian diffusion
@@ -712,7 +728,8 @@ contains
     ! Stokes number based on integrated settling velocity
     St = (V_g_hat * u_star) / (const%std_grav * drydep_params%A)
     ! Collection efficiency due to impaction
-    E_IM = drydep_params%C_IM * (St / (drydep_params%alpha + St))**drydep_params%beta
+    E_IM = drydep_params%C_IM * (St / (drydep_params%alpha + St)) &
+         **drydep_params%beta
 
     ! Rebound correction
     R1 = exp(-St**0.5d0)
@@ -732,7 +749,7 @@ contains
 
 #ifdef PMC_USE_QUADPACK
   real(kind=dp) function scenario_integrated_loss_rate_drydep_quadpack( &
-      scenario, aero_mode, moment, density, env_state)
+       scenario, aero_mode, moment, density, env_state)
 
     !> Scenario data.
     type(scenario_t), intent(in) :: scenario
@@ -768,12 +785,12 @@ contains
          / (const%univ_gas_const * env_state%temp)
     ! dynamic viscosity
     visc_d = 1.8325d-5 * (416.16 / (env_state%temp + 120.0d0)) &
-           * (env_state%temp / 296.16)**1.5d0
+         * (env_state%temp / 296.16)**1.5d0
     ! kinematic viscosity
     visc_k = visc_d / density_air
     ! gas speed
-    gas_speed = sqrt((8.0d0 * const%boltzmann * env_state%temp * const%avagadro) / &
-                     (const%pi * const%air_molec_weight))
+    gas_speed = sqrt((8.0d0 * const%boltzmann * env_state%temp &
+         * const%avagadro) / (const%pi * const%air_molec_weight))
     ! gas mean free path
     gas_mean_free_path = (2.0d0 * visc_d) / (density_air * gas_speed)
 
@@ -787,11 +804,12 @@ contains
     epsrel = 1.0d-6
 
     ! Allocate arrays for QUADPACK integration
-    allocate(alist(limit), blist(limit), rlist(limit), elist(limit), iord(limit))
+    allocate(alist(limit), blist(limit), rlist(limit), &
+         elist(limit), iord(limit))
 
     ! Call QUADPACK integration routine
     call dqagse(dep_vel_integrand, lower, upper, epsabs, epsrel, limit, &
-                result, abserr, neval, ier, alist, blist, rlist, elist, iord, last)
+         result, abserr, neval, ier, alist, blist, rlist, elist, iord, last)
 
     call assert_msg(909106718, ier == 0, &
        "QUADPACK integration failed, error code: " &
@@ -800,7 +818,8 @@ contains
     M_k = d_pg**moment * exp(moment**2 * ln_sigma_g**2 / 2.0d0)
 
     ! Integration result
-    scenario_integrated_loss_rate_drydep_quadpack = 1.0d0 / M_k * result / env_state%height
+    scenario_integrated_loss_rate_drydep_quadpack = 1.0d0 / M_k * result &
+         / env_state%height
 
     ! Clean up
     deallocate(alist, blist, rlist, elist, iord)
@@ -828,12 +847,14 @@ contains
     V_s = (density * d_p**2.0d0 * const%std_grav * cunning) / (18.0d0 * visc_d)
 
     ! Friction velocity and aerodynamic resistance
-    u_star = 0.4d0 * drydep_params%u_mean / log(drydep_params%z_ref / drydep_params%z_rough)
-    R_a = (1.0d0 / (0.4d0 * u_star)) * log(drydep_params%z_ref / drydep_params%z_rough)
+    u_star = 0.4d0 * drydep_params%u_mean &
+         / log(drydep_params%z_ref / drydep_params%z_rough)
+    R_a = (1.0d0 / (0.4d0 * u_star)) &
+         * log(drydep_params%z_ref / drydep_params%z_rough)
 
     ! Particle diffusivity and Schmidt number
-    diff_p = (const%boltzmann * env_state%temp * cunning) / &
-         (3.0d0 * const%pi * visc_d * d_p)
+    diff_p = (const%boltzmann * env_state%temp * cunning) &
+         / (3.0d0 * const%pi * visc_d * d_p)
     Sc = visc_k / diff_p
 
     ! Collection efficiencies
@@ -842,7 +863,8 @@ contains
 
     ! Stokes number and impaction efficiency
     St = (V_s * u_star) / (const%std_grav * drydep_params%A)
-    E_IM = drydep_params%C_IM * (St / (drydep_params%alpha + St))**drydep_params%beta
+    E_IM = drydep_params%C_IM &
+         * (St / (drydep_params%alpha + St))**drydep_params%beta
 
     ! Rebound correction
     R1 = exp(-St**0.5d0)
@@ -856,11 +878,11 @@ contains
     ! Log-normal size distribution
     ln_dp = log(d_p)
     ln_dp_g = log(d_pg)
-    n_ddp = (1.0d0/(sqrt(2.0d0 * const%pi) * d_p * ln_sigma_g)) * &
-            exp(-((ln_dp - ln_dp_g)**2) / (2.0d0 * ln_sigma_g**2))
+    n_ddp = (1.0d0/(sqrt(2.0d0 * const%pi) * d_p * ln_sigma_g)) &
+         * exp(-((ln_dp - ln_dp_g)**2) / (2.0d0 * ln_sigma_g**2))
 
-     ! Final integrand
-     dep_vel_integrand = d_p**moment * V_d * n_ddp
+    ! Final integrand
+    dep_vel_integrand = d_p**moment * V_d * n_ddp
   end function dep_vel_integrand
   end function scenario_integrated_loss_rate_drydep_quadpack
 #endif
@@ -870,7 +892,7 @@ contains
   !> Updates an array to contain the integrated deposition velocities for the
   !> given moment of each aerosol mode in the distribution.
   subroutine scenario_modal_drydep_velocities(scenario, aero_dist, moment, &
-      density, env_state, velocities)
+       density, env_state, velocities)
 
     !> Scenario data.
     type(scenario_t), intent(in) :: scenario
@@ -1067,7 +1089,7 @@ contains
   !! (1d0 - exp(-delta_t*rate))/over_prob, where rate is the loss function
   !! evaluated for the given particle.
   subroutine scenario_try_single_particle_loss(scenario, delta_t, &
-      aero_data, aero_state, env_state, i_part, over_prob)
+       aero_data, aero_state, env_state, i_part, over_prob)
 
     !> Scenario data.
     type(scenario_t), intent(in) :: scenario
@@ -1252,7 +1274,7 @@ contains
        call spec_file_unread_line(file)
        if (line%name /= 'drydep_params') then
           call warn_msg(735291468, "using default dry deposition parameters")
-       else 
+       else
           call spec_file_read_string(file, 'drydep_params', sub_filename)
           call spec_file_open(sub_filename, sub_file)
           call spec_file_read_drydep_params(sub_file, scenario%drydep)
@@ -1382,28 +1404,29 @@ contains
     !> \page input_format_drydep_params Input File Format: Dry Deposition Parameters
     !!
     !! Dry deposition is simulatied using the specified parameters:
-    !! - \b z_ref (real, unit m): the reference height \f$z_{\rm ref}\f$ used 
+    !! - \b z_ref (real, unit m): the reference height \f$z_{\rm ref}\f$ used
     !!   in the calculation of aerodynamic resistance \f$R_a\f$
     !! - \b u_mean (real, unit m s^{-1}): the wind speed at the reference
     !!   height
-    !! - \b z_rough (real, unit m): the roughness length associated with 
+    !! - \b z_rough (real, unit m): the roughness length associated with
     !!   the surface
     !! - \b A (real, unit m): the characteristic radius of collectors
     !!   associated with the surface
-    !! - \b alpha (real, dimensionless): the parameter \f$\alpha\f$ used in the 
-    !!   calculation of impaction efficiency \f$E_{\rm IM}\f$
-    !! - \b eps_0 (real, dimensionless): the empirical constant used in the 
+    !! - \b alpha (real, dimensionless): the parameter \f$\alpha\f$ used
+    !!   in the calculation of impaction efficiency \f$E_{\rm IM}\f$
+    !! - \b eps_0 (real, dimensionless): the empirical constant used in the
     !!   calculation of surface resistance \f$R_s\f$
     !! - \b gamma (real, dimensionless): the exponent \f$\gamma\f$ used in the
-    !!   calculation of Brownian diffusion collection efficiency \f$E_{\rm B}\f$
+    !!   calculation of Brownian diffusion collection
+    !!   efficiency \f$E_{\rm B}\f$
     !! - \b C_B (real, dimensionless): the coefficient for Brownian diffusion
     !!   collection efficiency \f$E_{\rm B}\f$
     !! - \b C_IN (real, dimensionless): the coefficient for interception
     !!   collection efficiency \f$E_{\rm IN}\f$
-    !! - \b C_IM (real, dimensionless): the coefficient for impaction collection
-    !!   efficiency \f$E_{\rm IM}\f$
-    !! - \b nu (real, dimensionless): the exponent \f$\nu\f$ used in the calculation
-    !!   of interception collection efficiency \f$E_{\rm IN}\f$
+    !! - \b C_IM (real, dimensionless): the coefficient for impaction
+    !!   collection efficiency \f$E_{\rm IM}\f$
+    !! - \b nu (real, dimensionless): the exponent \f$\nu\f$ used in the
+    !!   calculation of interception collection efficiency \f$E_{\rm IN}\f$
     !! - \b beta (real, dimensionless): the exponent \f$\beta\f$ used in the
     !!   calculation of impaction collection efficiency \f$E_{\rm IM}\f$
     !!
@@ -1437,18 +1460,21 @@ contains
     !> NetCDF file ID, in data mode.
     integer, intent(in) :: ncid
 
-    call pmc_nc_write_real(ncid, drydep_params%z_ref,   "drydep_z_ref",   unit="m")
-    call pmc_nc_write_real(ncid, drydep_params%u_mean,  "drydep_u_mean",  unit="m s^{-1}")
-    call pmc_nc_write_real(ncid, drydep_params%z_rough, "drydep_z_rough", unit="m")
-    call pmc_nc_write_real(ncid, drydep_params%A,       "drydep_A",       unit="m")
-    call pmc_nc_write_real(ncid, drydep_params%alpha,   "drydep_alpha",   unit="1")
-    call pmc_nc_write_real(ncid, drydep_params%eps_0,   "drydep_eps_0",   unit="1")
-    call pmc_nc_write_real(ncid, drydep_params%gamma,   "drydep_gamma",   unit="1")
-    call pmc_nc_write_real(ncid, drydep_params%C_B,     "drydep_C_B",     unit="1")
-    call pmc_nc_write_real(ncid, drydep_params%C_IN,    "drydep_C_IN",    unit="1")
-    call pmc_nc_write_real(ncid, drydep_params%C_IM,    "drydep_C_IM",    unit="1")
-    call pmc_nc_write_real(ncid, drydep_params%nu,      "drydep_nu",      unit="1")
-    call pmc_nc_write_real(ncid, drydep_params%beta,    "drydep_beta",    unit="1")
+    associate (d => drydep_params)
+      call pmc_nc_write_real(ncid, d%z_ref,   "drydep_z_ref",   unit="m")
+      call pmc_nc_write_real(ncid, d%u_mean,  "drydep_u_mean",  &
+                             unit="m s^{-1}")
+      call pmc_nc_write_real(ncid, d%z_rough, "drydep_z_rough", unit="m")
+      call pmc_nc_write_real(ncid, d%A,       "drydep_A",       unit="m")
+      call pmc_nc_write_real(ncid, d%alpha,   "drydep_alpha",   unit="1")
+      call pmc_nc_write_real(ncid, d%eps_0,   "drydep_eps_0",   unit="1")
+      call pmc_nc_write_real(ncid, d%gamma,   "drydep_gamma",   unit="1")
+      call pmc_nc_write_real(ncid, d%C_B,     "drydep_C_B",     unit="1")
+      call pmc_nc_write_real(ncid, d%C_IN,    "drydep_C_IN",    unit="1")
+      call pmc_nc_write_real(ncid, d%C_IM,    "drydep_C_IM",    unit="1")
+      call pmc_nc_write_real(ncid, d%nu,      "drydep_nu",      unit="1")
+      call pmc_nc_write_real(ncid, d%beta,    "drydep_beta",    unit="1")
+    end associate
 
   end subroutine drydep_params_output_netcdf
 
@@ -1462,18 +1488,20 @@ contains
     !> NetCDF file ID, in data mode.
     integer, intent(in) :: ncid
 
-    call pmc_nc_read_real(ncid, drydep_params%z_ref,   "drydep_z_ref")
-    call pmc_nc_read_real(ncid, drydep_params%u_mean,  "drydep_u_mean")
-    call pmc_nc_read_real(ncid, drydep_params%z_rough, "drydep_z_rough")
-    call pmc_nc_read_real(ncid, drydep_params%A,       "drydep_A")
-    call pmc_nc_read_real(ncid, drydep_params%alpha,   "drydep_alpha")
-    call pmc_nc_read_real(ncid, drydep_params%eps_0,   "drydep_eps_0")
-    call pmc_nc_read_real(ncid, drydep_params%gamma,   "drydep_gamma")
-    call pmc_nc_read_real(ncid, drydep_params%C_B,     "drydep_C_B")
-    call pmc_nc_read_real(ncid, drydep_params%C_IN,    "drydep_C_IN")
-    call pmc_nc_read_real(ncid, drydep_params%C_IM,    "drydep_C_IM")
-    call pmc_nc_read_real(ncid, drydep_params%nu,      "drydep_nu")
-    call pmc_nc_read_real(ncid, drydep_params%beta,    "drydep_beta")
+    associate (d => drydep_params)
+      call pmc_nc_read_real(ncid, d%z_ref,   "drydep_z_ref")
+      call pmc_nc_read_real(ncid, d%u_mean,  "drydep_u_mean")
+      call pmc_nc_read_real(ncid, d%z_rough, "drydep_z_rough")
+      call pmc_nc_read_real(ncid, d%A,       "drydep_A")
+      call pmc_nc_read_real(ncid, d%alpha,   "drydep_alpha")
+      call pmc_nc_read_real(ncid, d%eps_0,   "drydep_eps_0")
+      call pmc_nc_read_real(ncid, d%gamma,   "drydep_gamma")
+      call pmc_nc_read_real(ncid, d%C_B,     "drydep_C_B")
+      call pmc_nc_read_real(ncid, d%C_IN,    "drydep_C_IN")
+      call pmc_nc_read_real(ncid, d%C_IM,    "drydep_C_IM")
+      call pmc_nc_read_real(ncid, d%nu,      "drydep_nu")
+      call pmc_nc_read_real(ncid, d%beta,    "drydep_beta")
+    end associate
 
   end subroutine drydep_params_input_netcdf
 

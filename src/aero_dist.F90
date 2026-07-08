@@ -295,17 +295,20 @@ contains
       num_concs(i_mode) = aero_dist%mode(i_mode)%num_conc
     end do
 
-    call pmc_nc_write_real_1d(ncid, char_rads, "char_radius_modes", dim_name="num_modes", &
+    call pmc_nc_write_real_1d(ncid, char_rads, "char_rads_modes", &
+                              dim_name="num_modes", &
                               long_name="characteristic radius of each mode", &
                               unit="m")
-    call pmc_nc_write_real_1d(ncid, log10_std_dev_rads, "std_dev_radius_modes", dim_name="num_modes", &
-                             long_name="log_10 of geometric std dev for each mode", &
-                             unit="1")
-    call pmc_nc_write_real_1d(ncid, num_concs, "num_conc_modes", dim_name="num_modes", &
-                              long_name="number concentration for each mode", &
+    call pmc_nc_write_real_1d(ncid, log10_std_dev_rads, "std_dev_rads_modes", &
+                              dim_name="num_modes", &
+                              long_name="log of geom. std dev of each mode", &
+                              unit="1")
+    call pmc_nc_write_real_1d(ncid, num_concs, "num_conc_modes", &
+                              dim_name="num_modes", &
+                              long_name="number concentration of each mode", &
                               unit="m^-3")
     call pmc_nc_write_integer(ncid, aero_dist_n_mode(aero_dist), "n_mode", &
-         description="total number of modes")
+                              description="total number of modes")
 
     deallocate(char_rads, log10_std_dev_rads, num_concs)
 
@@ -333,8 +336,8 @@ contains
 
     allocate(char_rads(n_mode), log10_std_dev_rads(n_mode), num_concs(n_mode))
 
-    call pmc_nc_read_real_1d(ncid, char_rads, "char_radius_modes")
-    call pmc_nc_read_real_1d(ncid, log10_std_dev_rads, "std_dev_radius_modes")
+    call pmc_nc_read_real_1d(ncid, char_rads, "char_rads_modes")
+    call pmc_nc_read_real_1d(ncid, log10_std_dev_rads, "std_dev_rads_modes")
     call pmc_nc_read_real_1d(ncid, num_concs, "num_conc_modes")
 
     do i_mode = 1, n_mode

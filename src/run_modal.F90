@@ -51,7 +51,7 @@ module pmc_run_modal
 
 contains
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !> Run a modal simulation.
   subroutine run_modal(aero_data, aero_dist, scenario, env_state, &
@@ -89,8 +89,7 @@ contains
          "del_t", run_modal_opt%del_t)
 
     if (aero_data_n_spec(aero_data) /= 1) then
-       call die_msg(927384615, &
-            'run_modal() can only use one aerosol species')
+       call die_msg(927384615, 'run_modal() can only use one aerosol species')
     end if
 
     ! output data structure
@@ -151,7 +150,7 @@ contains
 
   end subroutine run_modal
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !> Read the specification for a run_modal simulation from a spec file.
   subroutine spec_file_read_run_modal(file, run_modal_opt, aero_data, &
@@ -186,7 +185,8 @@ contains
 
     call spec_file_read_radius_bin_grid(file, bin_grid)
 
-    call spec_file_read_logical(file, 'do_camp_chem', run_modal_opt%do_camp_chem)
+    call spec_file_read_logical(file, 'do_camp_chem', &
+         run_modal_opt%do_camp_chem)
     if (run_modal_opt%do_camp_chem) then
        call spec_file_die_msg(263948175, file, &
             "modal run does not support CAMP chemistry")
@@ -218,13 +218,15 @@ contains
     call spec_file_read_scenario(file, gas_data, aero_data, .false., scenario)
     call spec_file_read_env_state(file, env_state)
 
-    call spec_file_read_logical(file, 'do_coagulation', run_modal_opt%do_coagulation)
+    call spec_file_read_logical(file, 'do_coagulation', &
+         run_modal_opt%do_coagulation)
     if (run_modal_opt%do_coagulation) then
        call spec_file_die_msg(473829156, file, &
             "modal run does not support coagulation")
     end if
 
-    call spec_file_read_logical(file, 'do_condensation', run_modal_opt%do_condensation)
+    call spec_file_read_logical(file, 'do_condensation', &
+         run_modal_opt%do_condensation)
     if (run_modal_opt%do_condensation) then
        call spec_file_die_msg(612938475, file, &
             "modal run does not support condensation")
@@ -242,7 +244,8 @@ contains
             "modal run does not support optical properties calculation")
     end if
 
-    call spec_file_read_logical(file, 'do_nucleation', run_modal_opt%do_nucleation)
+    call spec_file_read_logical(file, 'do_nucleation', &
+         run_modal_opt%do_nucleation)
     if (run_modal_opt%do_nucleation) then
        call spec_file_die_msg(391847265, file, &
             "modal run does not support nucleation")
@@ -266,8 +269,7 @@ contains
             // "all aero_emission rates must be zero")
     end if
     if (size(scenario%aero_dilution_rate) > 0) then
-       call assert_msg(742916380, &
-            all(scenario%aero_dilution_rate == 0.0d0), &
+       call assert_msg(742916380, all(scenario%aero_dilution_rate == 0.0d0), &
             "modal run does not support aerosol background dilution: " &
             // "all aero_dilution rates must be zero")
     end if
@@ -286,6 +288,6 @@ contains
 
   end subroutine spec_file_read_run_modal
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 end module pmc_run_modal

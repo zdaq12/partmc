@@ -820,8 +820,7 @@ contains
     integer :: ncid
     character(len=len(prefix)+100) :: filename
 
-    write(filename, '(a,a,i8.8,a)') trim(prefix), &
-         '_', index, '.nc'
+    write(filename, '(a,a,i8.8,a)') trim(prefix), '_', index, '.nc'
     call pmc_nc_open_write(filename, ncid)
     call pmc_nc_write_info(ncid, uuid, &
          "PartMC version " // trim(PARTMC_VERSION))
