@@ -431,7 +431,6 @@ contains
   !> Update the modal aerosol distribution to account for particle loss.
   subroutine scenario_update_aero_modes(aero_dist, del_t, env_state, &
        density, scenario)
-       density, scenario)
 
     !> Aerosol distribution.
     type(aero_dist_t), intent(inout) :: aero_dist
@@ -665,9 +664,6 @@ contains
 #ifdef PMC_USE_QUADPACK
      ! Do numerical integration when QUADPACK is available
      scenario_integrated_loss_rate_drydep = &
-          scenario_integrated_loss_rate_drydep_quadpack( &
-          scenario, aero_mode, moment, density, env_state)
-     scenario_integrated_loss_rate_drydep = &
          scenario_integrated_loss_rate_drydep_quadpack( &
             scenario, aero_mode, moment, density, env_state)
      return
@@ -681,7 +677,6 @@ contains
     ln_sigma_g = aero_mode%log10_std_dev_radius / log10(exp(1.0d0))
     ! density of air
     density_air = (const%air_molec_weight * env_state%pressure) &
-          / (const%univ_gas_const * env_state%temp)
          / (const%univ_gas_const * env_state%temp)
     ! dynamic viscosity
     visc_d = 1.8325d-5 * (416.16 / (env_state%temp + 120.0d0)) &
