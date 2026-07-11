@@ -893,13 +893,13 @@ contains
     type(scenario_t), intent(in) :: scenario
     !> Aerosol distribution.
     type(aero_dist_t), intent(in) :: aero_dist
-    !> Moment to compute rate for.
+    !> Moment to compute deposition velocities for.
     real(kind=dp), intent(in) :: moment
     !> Density for the mode.
     real(kind=dp), intent(in) :: density
     !> Environment state.
     type(env_state_t), intent(in) :: env_state
-    !> Velocities.
+    !> Modal dry deposition velocities.
     real(kind=dp), intent(inout) :: velocities(:)
 
     integer :: i_mode
