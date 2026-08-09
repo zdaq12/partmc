@@ -14,5 +14,5 @@ fi
 ../../extract_sectional_aero_time out/loss_modal_drydep
 
 ../../numeric_diff --by col --rel-tol 1e-8 \
-		loss_modal_drydep_aero_time_ref.txt \
+		loss_modal_drydep_quadpack_aero_time_ref.txt \
 		out/loss_modal_drydep_aero_time.txt
