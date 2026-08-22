@@ -31,19 +31,33 @@ module pmc_run_sect
   !> Options controlling the operation of run_sect().
   type run_sect_opt_t
      !> Final time (s).
-    real(kind=dp) :: t_max
-    !> Timestep for coagulation (s).
-    real(kind=dp) :: del_t
-    !> Output interval (0 disables) (s).
-    real(kind=dp) :: t_output
-    !> Progress interval (0 disables) (s).
-    real(kind=dp) :: t_progress
-    !> Whether to do coagulation.
-    logical :: do_coagulation
-    !> Output prefix.
+     real(kind=dp) :: t_max
+     !> Timestep for coagulation (s).
+     real(kind=dp) :: del_t
+     !> Output interval (0 disables) (s).
+     real(kind=dp) :: t_output
+     !> Progress interval (0 disables) (s).
+     real(kind=dp) :: t_progress
+     !> Type of coagulation kernel.
+     integer :: coag_kernel_type
+     !> Whether to do coagulation.
+     logical :: do_coagulation
+     !> Whether to run CAMP. 
+     logical :: do_camp_chem
+     !> Whether to run TChem.
+     logical :: do_tchem
+     !> Whether to do condensation.
+     logical :: do_condensation
+     !> Whether to run MOSAIC.
+     logical :: do_mosaic
+     !> Whether to compute optical properties.
+     logical :: do_optical
+     !> Whether to do nucleation.
+     logical :: do_nucleation
+     !> Whether to do immersion freezing.
+     logical :: do_immersion_freezing
+     !> Output prefix.
      character(len=300) :: prefix
-    !> Type of coagulation kernel.
-    integer :: coag_kernel_type
      !> UUID of the simulation.
      character(len=PMC_UUID_LEN) :: uuid
   end type run_sect_opt_t
@@ -86,8 +100,10 @@ contains
     type(aero_binned_t) :: aero_binned
     type(gas_state_t) :: gas_state
 
-    integer i, j, i_time, num_t, i_summary
+    integer i, j, i_time, num_t, i_summary, i_bin
     logical do_output, do_progress
+    real(kind=dp) removed, mass_init, mass_final
+    real(kind=dp), allocatable :: old_mass_conc(:)
 
     call check_time_multiple("t_max", run_sect_opt%t_max, &
          "del_t", run_sect_opt%del_t)
@@ -126,6 +142,7 @@ contains
     last_progress_time = 0d0
     time = 0d0
     i_summary = 1
+    removed = 0d0
 
     ! precompute kernel values for all pairs of bins
     call bin_kernel(bin_grid_size(bin_grid), bin_grid%centers, aero_data, &
@@ -149,9 +166,16 @@ contains
          last_output_time, do_output)
     if (do_output) then
        call output_sectional(run_sect_opt%prefix, bin_grid, aero_data, &
-            aero_binned, gas_data, gas_state, env_state, i_summary, &
+            aero_binned, gas_data, gas_state, env_state, scenario, i_summary, &
             time, run_sect_opt%t_output, run_sect_opt%uuid)
     end if
+
+    do i_bin = 1,bin_grid_size(bin_grid)
+      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
+      mass_init = mass_init + old_mass_conc(1)
+    end do
+
+    print *, "Initial mass: ", mass_init
 
     ! main time-stepping loop
     num_t = nint(run_sect_opt%t_max / run_sect_opt%del_t)
@@ -182,7 +206,7 @@ contains
        if (do_output) then
           i_summary = i_summary + 1
           call output_sectional(run_sect_opt%prefix, bin_grid, aero_data, &
-               aero_binned, gas_data, gas_state, env_state, i_summary, &
+               aero_binned, gas_data, gas_state, env_state, scenario, i_summary, &
                time, run_sect_opt%t_output, run_sect_opt%uuid)
        end if
 
@@ -193,6 +217,11 @@ contains
           write(*,'(a6,a8)') 'step', 'time'
           write(*,'(i6,f8.1)') i_time, time
        end if
+    end do
+
+    do i_bin = 1,bin_grid_size(bin_grid)
+      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
+      mass_final = mass_final + old_mass_conc(1)
     end do
 
   end subroutine run_sect
@@ -232,6 +261,19 @@ contains
 
     call spec_file_read_radius_bin_grid(file, bin_grid)
 
+    call spec_file_read_logical(file, 'do_camp_chem', &
+         run_sect_opt%do_camp_chem)
+    if (run_sect_opt%do_camp_chem) then
+       call spec_file_die_msg(263948175, file, &
+            "sectional run does not support CAMP chemistry")
+    end if
+
+    call spec_file_read_logical(file, 'do_tchem', run_sect_opt%do_tchem)
+    if (run_sect_opt%do_tchem) then
+       call spec_file_die_msg(195837264, file, &
+            "sectional run does not support TChem chemistry")
+    end if
+
     call spec_file_read_string(file, 'gas_data', sub_filename)
     call spec_file_open(sub_filename, sub_file)
     call spec_file_read_gas_data(sub_file, gas_data)
@@ -263,6 +305,39 @@ contains
        end if
     else
        run_sect_opt%coag_kernel_type = COAG_KERNEL_TYPE_INVALID
+    end if
+
+    call spec_file_read_logical(file, 'do_condensation', &
+         run_sect_opt%do_condensation)
+    if (run_sect_opt%do_condensation) then
+       call spec_file_die_msg(612938475, file, &
+            "sectional run does not support condensation")
+    end if
+
+    call spec_file_read_logical(file, 'do_mosaic', run_sect_opt%do_mosaic)
+    if (run_sect_opt%do_mosaic) then
+       call spec_file_die_msg(584729163, file, &
+            "sectional run does not support MOSAIC chemistry")
+    end if
+
+    call spec_file_read_logical(file, 'do_optical', run_sect_opt%do_optical)
+    if (run_sect_opt%do_optical) then
+       call spec_file_die_msg(527436819, file, &
+            "sectional run does not support optical properties calculation")
+    end if
+
+    call spec_file_read_logical(file, 'do_nucleation', &
+         run_sect_opt%do_nucleation)
+    if (run_sect_opt%do_nucleation) then
+       call spec_file_die_msg(391847265, file, &
+            "sectional run does not support nucleation")
+    end if
+
+    call spec_file_read_logical(file, 'do_immersion_freezing', &
+         run_sect_opt%do_immersion_freezing)
+    if (run_sect_opt%do_immersion_freezing) then
+       call spec_file_die_msg(748291635, file, &
+            "sectional run does not support immersion freezing")
     end if
 
     call spec_file_close(file)

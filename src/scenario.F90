@@ -18,6 +18,7 @@ module pmc_scenario
   use pmc_gas_data
   use pmc_chamber
   use pmc_mpi
+  use pmc_netcdf
 #ifdef PMC_USE_MPI
   use mpi
 #endif
@@ -37,6 +38,11 @@ module pmc_scenario
   integer, parameter :: SCENARIO_LOSS_FUNCTION_DRYDEP  = 4
   !> Type code for a loss rate function for chamber experiments.
   integer, parameter :: SCENARIO_LOSS_FUNCTION_CHAMBER  = 5
+
+  !> Type code for Zhang et al., 2001 dry deposition parameterization.
+  integer, parameter :: SCENARIO_DRYDEP_ZHANG   = 0
+  !> Type code for Emeroson et al., 2020 dry deposition parameterization.
+  integer, parameter :: SCENARIO_DRYDEP_EMERSON = 1
 
   !> Parameter to switch between algorithms for particle loss.
   !! A value of 0 will always use the naive algorithm, and
@@ -423,6 +429,10 @@ contains
     end if
     call aero_binned_scale(aero_binned, p)
     call aero_binned_add_scaled(aero_binned, background_binned, 1d0 - p)
+
+   ! loss
+   call scenario_binned_loss(scenario, bin_grid, delta_t, aero_data, &
+        env_state, aero_binned)
 
   end subroutine scenario_update_aero_binned
 
@@ -1120,6 +1130,94 @@ contains
     call aero_state_remove_particle_with_info(aero_state, i_part, aero_info)
 
   end subroutine scenario_try_single_particle_loss
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Performs loss for a binned aerosol distribution for one time step.
+  subroutine scenario_binned_loss(scenario, bin_grid, delta_t, aero_data, &
+       env_state, aero_binned)
+
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
+    !> Bin grid.
+    type(bin_grid_t), intent(in) :: bin_grid
+    !> Time increment to update over.
+    real(kind=dp), intent(in) :: delta_t
+    !> Aerosol data.
+    type(aero_data_t), intent(in) :: aero_data
+    !> Environmental state.
+    type(env_state_t), intent(in) :: env_state
+    !> Binned aerosol data.
+    type(aero_binned_t), intent(inout) :: aero_binned
+
+    integer :: i_bin, i
+    real(kind=dp) :: density, vol, rate, mass_flux, new_vol_conc
+    real(kind=dp), allocatable :: old_mass_conc(:)
+
+    if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_NONE .or. &
+        scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_INVALID) then
+        return
+    else if (scenario%loss_function_type == SCENARIO_LOSS_FUNCTION_DRYDEP) then
+
+       density = aero_data%density(1)
+
+       do i_bin = 1,bin_grid_size(bin_grid)
+          old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * density
+
+          if (old_mass_conc(1) == 0) then
+             cycle
+          end if
+
+          vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
+          rate = scenario_loss_rate(scenario, vol, density, aero_data, env_state)
+
+          mass_flux = old_mass_conc(1) * rate * delta_t
+
+          if (mass_flux > old_mass_conc(1)) then
+             mass_flux = old_mass_conc(1)
+             new_vol_conc = 0d0
+          else
+             new_vol_conc = (old_mass_conc(1) - mass_flux) / bin_grid%widths(i_bin) / density
+          endif
+
+          aero_binned%vol_conc(i_bin, :) = new_vol_conc
+          aero_binned%num_conc(i_bin) = new_vol_conc / aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
+       end do
+    else
+       return
+    end if
+
+  end subroutine scenario_binned_loss
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !> Updates an array (of size equal to the number of section) containing the
+  !> dry deposition loss rate for each bin in a sectional simulation.
+  subroutine scenario_section_drydep_rates(scenario, bin_grid, aero_data, &
+       env_state, rates)
+
+    !> Scenario data.
+    type(scenario_t), intent(in) :: scenario
+    !> Bin grid.
+    type(bin_grid_t), intent(in) :: bin_grid
+    !> Aerosol data.
+    type(aero_data_t), intent(in) :: aero_data
+    !> Environmental state.
+    type(env_state_t), intent(in) :: env_state
+    !> Loss rates for each section/bin.
+    real(kind=dp), intent(inout) :: rates(:)
+
+    integer :: i_bin
+    real(kind=dp) :: density, vol
+
+    density = aero_data%density(1)
+
+    do i_bin = 1,bin_grid_size(bin_grid)
+       vol = aero_data_rad2vol(aero_data, bin_grid%centers(i_bin))
+       rates(i_bin) = scenario_loss_rate_drydep(vol, density, &
+          aero_data, env_state, scenario) * env_state%height
+    end do
+
+end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
