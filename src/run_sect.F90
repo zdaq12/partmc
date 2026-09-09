@@ -38,11 +38,13 @@ module pmc_run_sect
      real(kind=dp) :: t_output
      !> Progress interval (0 disables) (s).
      real(kind=dp) :: t_progress
+     !> Whether to do aerosol background dilution.
+     logical :: do_aero_dilution
      !> Type of coagulation kernel.
      integer :: coag_kernel_type
      !> Whether to do coagulation.
      logical :: do_coagulation
-     !> Whether to run CAMP. 
+     !> Whether to run CAMP.
      logical :: do_camp_chem
      !> Whether to run TChem.
      logical :: do_tchem
@@ -100,10 +102,9 @@ contains
     type(aero_binned_t) :: aero_binned
     type(gas_state_t) :: gas_state
 
-    integer i, j, i_time, num_t, i_summary, i_bin
+    integer i, j, i_time, num_t, i_summary
     logical do_output, do_progress
-    real(kind=dp) removed, mass_init, mass_final
-    real(kind=dp), allocatable :: old_mass_conc(:)
+    real(kind=dp) removed
 
     call check_time_multiple("t_max", run_sect_opt%t_max, &
          "del_t", run_sect_opt%del_t)
@@ -170,13 +171,6 @@ contains
             time, run_sect_opt%t_output, run_sect_opt%uuid)
     end if
 
-    do i_bin = 1,bin_grid_size(bin_grid)
-      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
-      mass_init = mass_init + old_mass_conc(1)
-    end do
-
-    print *, "Initial mass: ", mass_init
-
     ! main time-stepping loop
     num_t = nint(run_sect_opt%t_max / run_sect_opt%del_t)
     do i_time = 1, num_t
@@ -198,7 +192,8 @@ contains
        call scenario_update_gas_state(scenario, run_sect_opt%del_t, &
             env_state, old_env_state, gas_data, gas_state)
        call scenario_update_aero_binned(scenario, run_sect_opt%del_t, &
-            env_state, old_env_state, bin_grid, aero_data, aero_binned)
+            env_state, old_env_state, bin_grid, aero_data, &
+            run_sect_opt%do_aero_dilution, aero_binned)
 
        ! print output
        call check_event(time, run_sect_opt%del_t, run_sect_opt%t_output, &
@@ -206,8 +201,8 @@ contains
        if (do_output) then
           i_summary = i_summary + 1
           call output_sectional(run_sect_opt%prefix, bin_grid, aero_data, &
-               aero_binned, gas_data, gas_state, env_state, scenario, i_summary, &
-               time, run_sect_opt%t_output, run_sect_opt%uuid)
+               aero_binned, gas_data, gas_state, env_state, scenario, &
+               i_summary, time, run_sect_opt%t_output, run_sect_opt%uuid)
        end if
 
        ! print progress to stdout
@@ -217,11 +212,6 @@ contains
           write(*,'(a6,a8)') 'step', 'time'
           write(*,'(i6,f8.1)') i_time, time
        end if
-    end do
-
-    do i_bin = 1,bin_grid_size(bin_grid)
-      old_mass_conc = aero_binned%vol_conc(i_bin,:) * bin_grid%widths(i_bin) * aero_data%density(1)
-      mass_final = mass_final + old_mass_conc(1)
     end do
 
   end subroutine run_sect
@@ -293,6 +283,9 @@ contains
 
     call spec_file_read_scenario(file, gas_data, aero_data, .false., scenario)
     call spec_file_read_env_state(file, env_state)
+
+    call spec_file_read_logical(file, 'do_aero_dilution', &
+         run_sect_opt%do_aero_dilution)
 
     call spec_file_read_logical(file, 'do_coagulation', &
          run_sect_opt%do_coagulation)
