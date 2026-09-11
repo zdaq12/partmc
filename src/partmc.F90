@@ -736,9 +736,7 @@ contains
     !!   dilution. If \c no, both the background-exchange dilution and
     !!   the mixing-layer-growth correction are skipped, which allows
     !!   other processes (for example dry deposition) to be studied in
-    !!   isolation. Note that the modal representation has no dilution
-    !!   treatment, so \c no is also what is needed for a like-for-like
-    !!   modal/sectional comparison.
+    !!   isolation.
     !! - \b do_coagulation (logical): whether to perform particle
     !!   coagulation.  If \c do_coagulation is \c yes, then the
     !!   following parameters must also be provided:
